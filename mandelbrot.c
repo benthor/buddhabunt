@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-
 int iterate_point(float c_real, float c_img, float max_square_absolute, int max_iteration) {
 	float square_absolute = 0;
 	int iteration = 0;
@@ -36,10 +35,24 @@ void iterate_plane(int MaxX, int MaxY, float zoom_factor, float max_square_absol
 	}
 }
 
+void iterate_plane2(float stepsize, int iteration) {
+	int pix_x, pix_y;
+	float c_real, c_img;
+		
+	for (c_img=-2; c_img < 2; c_img+=stepsize) {
+		for (c_real=-3; c_real < 2; c_real+=stepsize) {
+			if ( iteration == iterate_point(c_real, c_img, 5, iteration)) {
+				printf("*");
+			} else {
+				printf(" ");
+			}
+		}
+		printf("\n");
+	}
+}
+
 
 
 int main(int argc, char* argv[]) {
-
-	iterate_plane(300,200,0.05,100,9,9,-180,-100);
-
+	iterate_plane2(0.02,50);
 }
