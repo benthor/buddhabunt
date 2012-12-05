@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <complex.h>
+//#include <complex.h>
 #include "SDL/SDL.h"
 
 #define WIDTH 1024
@@ -25,8 +25,9 @@
 
 #define SQR_ABS(x,y) x*x + y*y
 
-
+/*
 //this stuff is way too damn slow
+//requires -lm to compile
 complex float iterate_step(complex float start, complex float cpoint) {
 	float start_real = creal(start);
 	float start_img = cimag(start);
@@ -35,6 +36,7 @@ complex float iterate_step(complex float start, complex float cpoint) {
 	return (start_real*start_real - start_img*start_img + cpoint_real) 
 		+ (2*start_real*start_img + cpoint_img)*I;
 }
+*/
 
 
 int iterate_point(float c_real, float c_img, float max_square_absolute, int max_iteration) {
@@ -156,8 +158,8 @@ int main(int argc, char* argv[]) {
 	//first iteration
 	iterate_plane(iteration++, screen);
 	//SDL_SaveBMP_RW(screen, file, 1);
-	SDL_Quit();
-	return 0;
+	//SDL_Quit();
+	//return 0;
 	
 	while(1) {
 		while (SDL_PollEvent(&event)) {
@@ -174,7 +176,7 @@ int main(int argc, char* argv[]) {
 				case SDL_MOUSEBUTTONDOWN:
 					//iterate_plane(iteration++, screen);
 					fprintf(stderr, "mouse x:%i, mouse y:%i\n", event.button.x, event.button.y);
-					trace_point(screen, IMG_MIN+(float)event.button.x*X_ZOOM, REAL_MIN+(float)event.button.y*Y_ZOOM, 0, 10000);
+					trace_point(screen, X2IMG(event.button.x), Y2REAL(event.button.y), 0, 10);
 					break;
 			}
 		}
