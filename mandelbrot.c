@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "SDL/SDL.h"
 
-#define WIDTH 640
-#define HEIGHT 480
+#define WIDTH 10240
+#define HEIGHT 7680
 #define BPP 4
 #define DEPTH 32
 
@@ -27,40 +27,23 @@ int iterate_point(float c_real, float c_img, float max_square_absolute, int max_
 }
 
 
-/*
-void iterate_plane(int MaxX, int MaxY, float zoom_factor, float max_square_absolute, int curr_iteration, int max_iteration, float min_c_real, float min_c_img) {
-	int pix_x,pix_y = 0;
-	float c_real, c_img;
-
-	for (pix_x=0; pix_x < MaxX; pix_x++) {
-		c_real = (min_c_real + pix_x) * zoom_factor;
-		for (pix_y=0; pix_y < MaxY; pix_y++) {
-			c_img = (min_c_img + pix_y) * zoom_factor;
-			printf("%i", iterate_point(c_real, c_img, max_square_absolute, curr_iteration));
-		}
-		printf("\n");
-	}
-}*/
-
 void setPixel(SDL_Surface* screen, int x, int y, float shade) {
-	Uint32* pixmem32; //this is some _really weird_, compact representation apparently
+	Uint32* pixmem32; 
 	
 	pixmem32 = (Uint32*) screen->pixels + x + y; 
 
 	// TODO: check out if we could do cool stuff with an alpha channel here as well
-	//fprintf(stderr, "before\n");
 	*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(shade*255), (Uint8)(shade*255), (Uint8)(shade*255));
-	//*pixmem32 = SDL_MapRGB(screen->format, 1, 1, 1);
 	//fprintf(stderr, "after\n");
 }
 
 
 
 void iterate_plane(int iteration, SDL_Surface* screen) {
-	float img_min = -3;
-	float img_max = 3;
-	float real_min = -3;
-	float real_max = 2;
+	float img_min = -2;
+	float img_max = 2;
+	float real_min = -2;
+	float real_max = 1;
 
 
 	int pix_x, pix_y;
@@ -81,11 +64,12 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 		for (x=0; x<w; x++) {
 			c_img = img_min + x*x_zoom;
 			c_real = real_min + y*y_zoom;
-			if ( iteration == iterate_point(c_real, c_img, 7, iteration)) {
-				setPixel(screen, x, y*w, 1-(1/(float)iteration));
-			} else {
+			//if ( iteration == iterate_point(c_real, c_img, 7, iteration)) {
+				//setPixel(screen, x, y*w, (1/(float)iteration));
+				setPixel(screen, x, y*w, (float)(iterate_point(c_real, c_img, 7, iteration))/iteration);
+			//} else {
 				//setPixel(screen, x, y*w, 1);
-			}
+			//}
 		}
 	}
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
@@ -94,14 +78,16 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 }
 
 
-
 int main(int argc, char* argv[]) {
 
 	SDL_Surface* screen;
 	SDL_Event event;
 
 	int keypress = 0;
-	int iteration = 1;
+	int iteration = 1000;
+
+	SDL_RWops* file;
+	file = SDL_RWFromFile("output.bmp", "wb");
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "Unable to init video: %s\n", SDL_GetError());
@@ -109,21 +95,29 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (!(screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_SWSURFACE|SDL_HWSURFACE))) {
-		fprintf(stderr, "Unable to set 640x480 video: %s\n", SDL_GetError());
+		fprintf(stderr, "Unable to set %ix%i video: %s\n", WIDTH, HEIGHT, SDL_GetError());
 		SDL_Quit();
 		return 1;
 	}
+
+	//first iteration
+	iterate_plane(iteration++, screen);
 	
 	while(1) {
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 				case SDL_QUIT:
 					fprintf(stderr, "quitting!\n");
+					SDL_SaveBMP_RW(screen, file, 1);
 					SDL_Quit();
 					return 0;
 					break;
 				case SDL_KEYDOWN:
+					//iterate_plane(iteration++, screen);
+					break;
+				case SDL_MOUSEBUTTONDOWN:
 					iterate_plane(iteration++, screen);
+					fprintf(stderr, "mouse x:%i, mouse y:%i\n", event.button.x, event.button.y);
 					break;
 			}
 		}
