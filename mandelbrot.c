@@ -6,6 +6,11 @@
 #define HEIGHT 768
 #define BPP 4
 #define DEPTH 32
+#define IMG_MIN = -2f;
+#define IMG_MAX = 2f;
+#define REAL_MIN = -2f;
+#define REAL_MAX = 1f;
+
 
 #define NEXT_REAL(curr_real, curr_img, point_real) (curr_real*curr_real - curr_img*curr_img + point_real)
 #define NEXT_IMAG(curr_real, curr_img, point_img) (2*curr_real*curr_img + point_img)
@@ -20,7 +25,6 @@ complex float iterate_step(complex float start, complex float cpoint) {
 	return (start_real*start_real - start_img*start_img + cpoint_real) 
 		+ (2*start_real*start_img + cpoint_img)*I;
 }
-
 
 
 int iterate_point(float c_real, float c_img, float max_square_absolute, int max_iteration) {
@@ -59,6 +63,7 @@ int iterate_point(float c_real, float c_img, float max_square_absolute, int max_
 }
 
 
+
 void setPixel(SDL_Surface* screen, int x, int y, float shade) {
 	Uint32* pixmem32; 
 	
@@ -70,13 +75,11 @@ void setPixel(SDL_Surface* screen, int x, int y, float shade) {
 }
 
 
+void trace_point(SDL_Surface* screen, int x, int y, int current_iteration, int iteration_limit) {
+}
+
 
 void iterate_plane(int iteration, SDL_Surface* screen) {
-	float img_min = -2;
-	float img_max = 2;
-	float real_min = -2;
-	float real_max = 1;
-
 
 	int pix_x, pix_y;
 	float c_real, c_img;
@@ -84,8 +87,8 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 	int h = screen->h;
 	int x,y;
 
-	float y_zoom = (real_max-real_min)/h;
-	float x_zoom = (img_max-img_min)/w;
+	float y_zoom = (REAL_MAX-REAL_MIN)/h;
+	float x_zoom = (IMG_MAX-IMG_MIN)/w;
 
 
 	if (SDL_MUSTLOCK(screen)) {
@@ -94,8 +97,8 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 
 	for (y=0; y<h; y++){
 		for (x=0; x<w; x++) {
-			c_img = img_min + x*x_zoom;
-			c_real = real_min + y*y_zoom;
+			c_img = IMG_MIN + x*x_zoom;
+			c_real = REAL_MIN + y*y_zoom;
 			//if ( iteration == iterate_point(c_real, c_img, 7, iteration)) {
 				//setPixel(screen, x, y, (1/(float)iteration));
 				setPixel(screen, x, y, (float)(iterate_point(c_real, c_img, 7, iteration))/iteration);
