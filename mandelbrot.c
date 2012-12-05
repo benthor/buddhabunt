@@ -7,6 +7,11 @@
 #define BPP 4
 #define DEPTH 32
 
+#define NEXT_REAL(curr_real, curr_img, point_real) (curr_real*curr_real - curr_img*curr_img + point_real)
+#define NEXT_IMAG(curr_real, curr_img, point_img) (2*curr_real*curr_img + point_img)
+
+
+//this stuff is way too damn slow
 complex float iterate_step(complex float start, complex float cpoint) {
 	float start_real = creal(start);
 	float start_img = cimag(start);
@@ -21,21 +26,33 @@ complex float iterate_step(complex float start, complex float cpoint) {
 int iterate_point(float c_real, float c_img, float max_square_absolute, int max_iteration) {
 	float square_absolute = 0;
 	int iteration = 0;
-	complex float cpoint = c_real + c_img * I;
-	complex float current = 0 + 0*I;
-	//float real = 0;
-	//float img = 0;
+	//complex float cpoint = c_real + c_img * I;
+	//complex float current = 0 + 0*I;
+	float real = 0;
+	float img = 0;
 
 
 	float real_tmp, img_tmp;
 
 	while ( square_absolute <= max_square_absolute && iteration < max_iteration ) {
-		//real_tmp = real*real - img*img + c_real;
-		//img_tmp = 2*real*img + c_img;
-		//img = img_tmp; real = real_tmp;
-		current = iterate_step(current, cpoint);
+		real_tmp = NEXT_REAL(real,img,c_real);
+		img_tmp = NEXT_IMAG(real,img,c_img);
+		img = img_tmp; real = real_tmp;
+		
+		// slower:
+		//current = creal(current)*creal(current) - cimag(current)*cimag(current) + creal(cpoint)
+		//	  + (2*creal(current)*cimag(current) + cimag(cpoint))*I;
+		// slowest:
+		//current = iterate_step(current, cpoint);
+
 		iteration++;
-		square_absolute = cabs(current); //real*real + img*img;
+	
+		// fastest:
+		square_absolute = real*real + img*img;
+		// slower:
+		//square_absolute = creal(current)*creal(current) + cimag(current)*cimag(current);
+		// slowest:
+		//square_absolute = cabs(current); 
 	}
 
 	return iteration;
@@ -99,7 +116,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	int keypress = 0;
-	int iteration = 0;
+	int iteration = 1000;
 
 	SDL_RWops* file;
 	file = SDL_RWFromFile("output.bmp", "wb");
@@ -117,6 +134,10 @@ int main(int argc, char* argv[]) {
 
 	//first iteration
 	iterate_plane(iteration++, screen);
+	fprintf(stderr, "quitting!\n");
+	SDL_SaveBMP_RW(screen, file, 1);
+	SDL_Quit();
+	return 0;
 	
 	while(1) {
 		while (SDL_PollEvent(&event)) {
