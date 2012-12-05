@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "SDL/SDL.h"
 
-#define WIDTH 10240
-#define HEIGHT 7680
+#define WIDTH 1024
+#define HEIGHT 768
 #define BPP 4
 #define DEPTH 32
 
@@ -30,7 +30,7 @@ int iterate_point(float c_real, float c_img, float max_square_absolute, int max_
 void setPixel(SDL_Surface* screen, int x, int y, float shade) {
 	Uint32* pixmem32; 
 	
-	pixmem32 = (Uint32*) screen->pixels + x + y; 
+	pixmem32 = (Uint32*) screen->pixels + x + y*screen->w; 
 
 	// TODO: check out if we could do cool stuff with an alpha channel here as well
 	*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(shade*255), (Uint8)(shade*255), (Uint8)(shade*255));
@@ -65,10 +65,10 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 			c_img = img_min + x*x_zoom;
 			c_real = real_min + y*y_zoom;
 			//if ( iteration == iterate_point(c_real, c_img, 7, iteration)) {
-				//setPixel(screen, x, y*w, (1/(float)iteration));
-				setPixel(screen, x, y*w, (float)(iterate_point(c_real, c_img, 7, iteration))/iteration);
+				//setPixel(screen, x, y, (1/(float)iteration));
+				setPixel(screen, x, y, (float)(iterate_point(c_real, c_img, 7, iteration))/iteration);
 			//} else {
-				//setPixel(screen, x, y*w, 1);
+				//setPixel(screen, x, y, 1);
 			//}
 		}
 	}
@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	int keypress = 0;
-	int iteration = 1000;
+	int iteration = 0;
 
 	SDL_RWops* file;
 	file = SDL_RWFromFile("output.bmp", "wb");
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
 					return 0;
 					break;
 				case SDL_KEYDOWN:
-					//iterate_plane(iteration++, screen);
+					iterate_plane(iteration++, screen);
 					break;
 				case SDL_MOUSEBUTTONDOWN:
 					iterate_plane(iteration++, screen);
