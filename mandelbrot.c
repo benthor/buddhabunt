@@ -6,14 +6,24 @@
 #define HEIGHT 768
 #define BPP 4
 #define DEPTH 32
-#define IMG_MIN = -2f;
-#define IMG_MAX = 2f;
-#define REAL_MIN = -2f;
-#define REAL_MAX = 1f;
+#define IMG_MIN -2
+#define IMG_MAX 2
+#define REAL_MIN -2
+#define REAL_MAX 1
 
+#define X_ZOOM (((float)IMG_MAX-IMG_MIN)/WIDTH)
+#define Y_ZOOM (((float)REAL_MAX-REAL_MIN)/HEIGHT)
 
 #define NEXT_REAL(curr_real, curr_img, point_real) (curr_real*curr_real - curr_img*curr_img + point_real)
 #define NEXT_IMAG(curr_real, curr_img, point_img) (2*curr_real*curr_img + point_img)
+
+#define X2IMG(x) (IMG_MIN + x*X_ZOOM)
+#define Y2REAL(y) (REAL_MIN + y*Y_ZOOM)
+
+#define IMG2X(img) ((img-IMG_MIN)/X_ZOOM)
+#define REAL2Y(real) ((real-REAL_MIN)/Y_ZOOM)
+
+#define SQR_ABS(x,y) x*x + y*y
 
 
 //this stuff is way too damn slow
@@ -52,7 +62,7 @@ int iterate_point(float c_real, float c_img, float max_square_absolute, int max_
 		iteration++;
 	
 		// fastest:
-		square_absolute = real*real + img*img;
+		square_absolute = SQR_ABS(real,img);
 		// slower:
 		//square_absolute = creal(current)*creal(current) + cimag(current)*cimag(current);
 		// slowest:
@@ -75,7 +85,19 @@ void setPixel(SDL_Surface* screen, int x, int y, float shade) {
 }
 
 
-void trace_point(SDL_Surface* screen, int x, int y, int current_iteration, int iteration_limit) {
+void trace_point(SDL_Surface* screen, float x, float y, int current_iteration, int iteration_limit) {
+	int sqr_abs = 0;
+	float real, img;
+
+	//FIXME, maybe don't hardcode maximum square absolute here
+	if (sqr_abs <= 7 && current_iteration++ < iteration_limit) {
+		//fprintf(stderr, "x %f y %f\n", (x-IMG_MIN)/X_ZOOM, (y-REAL_MIN)/Y_ZOOM);
+		setPixel(screen, (x-IMG_MIN)/X_ZOOM, (y-REAL_MIN)/Y_ZOOM, 0.5);
+		//real = x*X_ZOOM;
+		//img = y*Y_ZOOM;
+		SDL_Flip(screen);
+		trace_point(screen, NEXT_REAL(x,y,0), NEXT_IMAG(x,y,0), current_iteration, iteration_limit);
+	}
 }
 
 
@@ -83,22 +105,18 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 
 	int pix_x, pix_y;
 	float c_real, c_img;
-	int w = screen->w;
-	int h = screen->h;
 	int x,y;
 
-	float y_zoom = (REAL_MAX-REAL_MIN)/h;
-	float x_zoom = (IMG_MAX-IMG_MIN)/w;
 
 
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
 	}
 
-	for (y=0; y<h; y++){
-		for (x=0; x<w; x++) {
-			c_img = IMG_MIN + x*x_zoom;
-			c_real = REAL_MIN + y*y_zoom;
+	for (y=0; y<HEIGHT; y++){
+		for (x=0; x<WIDTH; x++) {
+			c_img = X2IMG(x);
+			c_real = Y2REAL(y);
 			//if ( iteration == iterate_point(c_real, c_img, 7, iteration)) {
 				//setPixel(screen, x, y, (1/(float)iteration));
 				setPixel(screen, x, y, (float)(iterate_point(c_real, c_img, 7, iteration))/iteration);
@@ -137,8 +155,7 @@ int main(int argc, char* argv[]) {
 
 	//first iteration
 	iterate_plane(iteration++, screen);
-	fprintf(stderr, "quitting!\n");
-	SDL_SaveBMP_RW(screen, file, 1);
+	//SDL_SaveBMP_RW(screen, file, 1);
 	SDL_Quit();
 	return 0;
 	
@@ -155,8 +172,9 @@ int main(int argc, char* argv[]) {
 					iterate_plane(iteration++, screen);
 					break;
 				case SDL_MOUSEBUTTONDOWN:
-					iterate_plane(iteration++, screen);
+					//iterate_plane(iteration++, screen);
 					fprintf(stderr, "mouse x:%i, mouse y:%i\n", event.button.x, event.button.y);
+					trace_point(screen, IMG_MIN+(float)event.button.x*X_ZOOM, REAL_MIN+(float)event.button.y*Y_ZOOM, 0, 10000);
 					break;
 			}
 		}
