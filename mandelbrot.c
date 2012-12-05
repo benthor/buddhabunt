@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <complex.h>
 #include "SDL/SDL.h"
 
 #define WIDTH 1024
@@ -6,21 +7,35 @@
 #define BPP 4
 #define DEPTH 32
 
+complex float iterate_step(complex float start, complex float cpoint) {
+	float start_real = creal(start);
+	float start_img = cimag(start);
+	float cpoint_real = creal(cpoint);
+	float cpoint_img = cimag(cpoint);
+	return (start_real*start_real - start_img*start_img + cpoint_real) 
+		+ (2*start_real*start_img + cpoint_img)*I;
+}
+
+
+
 int iterate_point(float c_real, float c_img, float max_square_absolute, int max_iteration) {
 	float square_absolute = 0;
 	int iteration = 0;
-	float real = 0;
-	float img = 0;
+	complex float cpoint = c_real + c_img * I;
+	complex float current = 0 + 0*I;
+	//float real = 0;
+	//float img = 0;
 
 
 	float real_tmp, img_tmp;
 
 	while ( square_absolute <= max_square_absolute && iteration < max_iteration ) {
-		real_tmp = real*real - img*img + c_real;
-		img_tmp = 2*real*img + c_img;
-		img = img_tmp; real = real_tmp;
+		//real_tmp = real*real - img*img + c_real;
+		//img_tmp = 2*real*img + c_img;
+		//img = img_tmp; real = real_tmp;
+		current = iterate_step(current, cpoint);
 		iteration++;
-		square_absolute = real*real + img*img;
+		square_absolute = cabs(current); //real*real + img*img;
 	}
 
 	return iteration;
