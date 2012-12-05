@@ -43,10 +43,9 @@ void iterate_plane(int MaxX, int MaxY, float zoom_factor, float max_square_absol
 }*/
 
 void setPixel(SDL_Surface* screen, int x, int y, float shade) {
-	//fprintf(stderr, "x:%i, y:%i\n", x,y);
 	Uint32* pixmem32; //this is some _really weird_, compact representation apparently
 	
-	pixmem32 = (Uint32*) screen->pixels + x + y; //TODO: check how results differ when order of y and x is swapped
+	pixmem32 = (Uint32*) screen->pixels + x + y; 
 
 	// TODO: check out if we could do cool stuff with an alpha channel here as well
 	//fprintf(stderr, "before\n");
@@ -58,8 +57,8 @@ void setPixel(SDL_Surface* screen, int x, int y, float shade) {
 
 
 void iterate_plane(int iteration, SDL_Surface* screen) {
-	float img_min = -2;
-	float img_max = 2;
+	float img_min = -3;
+	float img_max = 3;
 	float real_min = -3;
 	float real_max = 2;
 
@@ -70,8 +69,8 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 	int h = screen->h;
 	int x,y;
 
-	float x_zoom = (real_max-real_min)/w;
-	float y_zoom = (img_max-img_min)/h;
+	float y_zoom = (real_max-real_min)/h;
+	float x_zoom = (img_max-img_min)/w;
 
 
 	if (SDL_MUSTLOCK(screen)) {
@@ -82,15 +81,15 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 		for (x=0; x<w; x++) {
 			c_img = img_min + x*x_zoom;
 			c_real = real_min + y*y_zoom;
-			if ( iteration == iterate_point(c_real, c_img, 5, iteration)) {
-				setPixel(screen, x, y*w, 1);
+			if ( iteration == iterate_point(c_real, c_img, 7, iteration)) {
+				setPixel(screen, x, y*w, 1-(1/(float)iteration));
 			} else {
-				setPixel(screen, x, y*w, 0.5);
+				//setPixel(screen, x, y*w, 1);
 			}
 		}
-		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-		SDL_Flip(screen);
 	}
+	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+	SDL_Flip(screen);
 
 }
 
