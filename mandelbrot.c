@@ -3,6 +3,7 @@
 //#include <complex.h>
 #include "SDL/SDL.h"
 
+#define MAXITER = 1000000
 #define WIDTH 1400
 #define HEIGHT 1050
 #define BPP 4
@@ -103,6 +104,19 @@ void trace_point(SDL_Surface* screen, float real, float img, int current_iterati
 }
 
 
+void print_array(SDL_Surface* screen, int* a, int l) {
+	int i,x,y,max=0;
+	for (i=0; i<l; i++) {
+		if (a[i] > max) max = a[i];
+	}
+	for (i=0; i<l; i++) {
+		setPixel(screen, i%WIDTH, i/WIDTH, (float)a[i]/max);
+	}
+}
+
+
+
+
 void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int maxpoints) {
 
 	int counter = 0;
@@ -111,6 +125,12 @@ void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int ma
 	float curr_img;
 	float point_real, point_img, next_real, next_img;
 	int tmp;
+
+	int l=WIDTH*HEIGHT;
+	int a[l];
+	int i;
+
+	for (i=0; i<l; a[i++]=0);
 
 	while (counter < maxpoints) {
 		x = RAND_X;
@@ -124,8 +144,9 @@ void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int ma
 			counter++;
 			setPixel(screen, x, y, 0.5);
 			while (SQR_ABS(curr_real, curr_img) < 7 && IMG2X(curr_img) >= 0 && REAL2Y(curr_real) >= 0) {
-				fprintf(stderr,"x = %i, y = %i\n", IMG2X(curr_img), REAL2Y(curr_real));
-				setPixel(screen, IMG2X(curr_img), REAL2Y(curr_real), 1);
+				//fprintf(stderr,"x = %i, y = %i\n", IMG2X(curr_img), REAL2Y(curr_real));
+				a[IMG2X(curr_img)+WIDTH*REAL2Y(curr_real)]++;
+				//setPixel(screen, IMG2X(curr_img), REAL2Y(curr_real), 1);
 				next_real = NEXT_REAL(curr_real, curr_img, point_real);
 				next_img  = NEXT_IMAG(curr_real, curr_img, point_img);
 				curr_real = next_real;
@@ -133,6 +154,7 @@ void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int ma
 			}
 			
 			if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+			print_array(screen, a, l);
 			SDL_Flip(screen);
 		}
 	}
@@ -181,7 +203,7 @@ int main(int argc, char* argv[]) {
 
 	//first iteration
 	//iterate_plane(iteration++, screen);
-	random_buddha_plane(screen, 10000, 100000, WIDTH*HEIGHT/100);	
+	random_buddha_plane(screen, 2000, 10000, WIDTH*HEIGHT/100);	
 	SDL_SaveBMP_RW(screen, file, 1);
 	//SDL_Quit();
 	//return 0;
