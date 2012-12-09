@@ -3,9 +3,12 @@
 //#include <complex.h>
 #include "SDL/SDL.h"
 
-#define MAXITER = 1000000
+#define MAXITER 1000000
+#define SQR_ABS_MAX 7
 #define WIDTH 1400
 #define HEIGHT 1050
+#define BUFFSIZE (WIDTH*HEIGHT)
+#define	CURRSIZE (MAXITER*2)
 #define BPP 4
 #define DEPTH 32
 #define IMG_MIN -2
@@ -126,11 +129,13 @@ void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int ma
 	float point_real, point_img, next_real, next_img;
 	int tmp;
 
-	int l=WIDTH*HEIGHT;
-	int a[l];
-	int i;
+	static int buffer[BUFFSIZE];
+	static int current[CURRSIZE];
+	
+	int i,j;
 
-	for (i=0; i<l; a[i++]=0);
+	for (i=0; i<BUFFSIZE; buffer[i++]=0);
+	for (i=0; i<CURRSIZE; current[i++]=0);
 
 	while (counter < maxpoints) {
 		x = RAND_X;
@@ -139,13 +144,44 @@ void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int ma
 		curr_img  = 0;
 		point_real=Y2REAL(y);
 		point_img=X2IMG(x);
-		tmp = iterate_point(point_real, point_img, 7, max_iter);
-		if (tmp >= min_iter && tmp < max_iter) {
+		//tmp = iterate_point(point_real, point_img, 7, max_iter);
+
+		current[0] = 0;
+		current[1] = 0;
+		i = 1;
+		fprintf(stderr, "before->");
+		while (i<(CURRSIZE-2)) {
+			if (SQR_ABS(current[i-1],current[i]) >= SQR_ABS_MAX) {
+				if (i>min_iter) {
+					j = 0;
+					while (j < i) {
+						// MESSY
+						//fprintf(stderr, "real: %d, imag: %d\n", current[j], current[j+1]);
+						if (REAL2Y(current[j-1]) >= 0 && IMG2X(current[j]) >= 0) {
+							buffer[IMG2X(current[j])+WIDTH*REAL2Y(current[j-1])]++;
+						}
+						j+=2;
+					}
+					fprintf(stderr, "after\n");
+					if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+					print_array(screen, buffer, BUFFSIZE);
+					SDL_Flip(screen);
+					counter++;
+				}
+				break;
+			}
+			//I know this is messy
+			current[i+1] = NEXT_REAL(current[i-1],current[i],point_real);
+			current[i+2] = NEXT_IMAG(current[i-1],current[i],point_img);
+			i+=2;
+		}
+		
+		/*if (tmp >= min_iter && tmp < max_iter) {
 			counter++;
 			setPixel(screen, x, y, 0.5);
 			while (SQR_ABS(curr_real, curr_img) < 7 && IMG2X(curr_img) >= 0 && REAL2Y(curr_real) >= 0) {
 				//fprintf(stderr,"x = %i, y = %i\n", IMG2X(curr_img), REAL2Y(curr_real));
-				a[IMG2X(curr_img)+WIDTH*REAL2Y(curr_real)]++;
+				buffer[IMG2X(curr_img)+WIDTH*REAL2Y(curr_real)]++;
 				//setPixel(screen, IMG2X(curr_img), REAL2Y(curr_real), 1);
 				next_real = NEXT_REAL(curr_real, curr_img, point_real);
 				next_img  = NEXT_IMAG(curr_real, curr_img, point_img);
@@ -153,10 +189,7 @@ void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int ma
 				curr_img  = next_img;
 			}
 			
-			if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-			print_array(screen, a, l);
-			SDL_Flip(screen);
-		}
+		}*/
 	}
 	//SDL_Flip(screen);
 }
