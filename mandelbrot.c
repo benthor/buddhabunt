@@ -3,7 +3,7 @@
 #include <complex.h>
 #include "SDL/SDL.h"
 
-#define MAXITER 1000
+#define MAXITER 100000
 #define SQR_ABS_MAX 7
 #define WIDTH 1400
 #define HEIGHT 1050
@@ -101,6 +101,7 @@ int opt_iterate_point(float c_real, float c_imag, float s, int n, complex float*
 
 
 void setPixel(SDL_Surface* screen, int x, int y, float shade) {
+	if (x < 0 || y < 0) return;
 	Uint32* pixmem32; 
 	
 	pixmem32 = (Uint32*) screen->pixels + x + y*screen->w; 
@@ -110,17 +111,6 @@ void setPixel(SDL_Surface* screen, int x, int y, float shade) {
 	//fprintf(stderr, "after\n");
 }
 
-
-void trace_point(SDL_Surface* screen, float real, float img, int current_iteration, int iteration_limit) {
-	int sqr_abs = 0;
-
-	//FIXME, maybe don't hardcode maximum square absolute here
-	if (IMG2X(img) > 0 && REAL2Y(real) > 0 && sqr_abs <= 7 && current_iteration++ < iteration_limit) {
-		setPixel(screen, IMG2X(img), REAL2Y(real), 0.5);
-		SDL_Flip(screen);
-		trace_point(screen, NEXT_REAL(real,img,0), NEXT_IMAG(real,img,0), current_iteration, iteration_limit);
-	}
-}
 
 
 void print_array(SDL_Surface* screen, int* a, int l) {
@@ -136,9 +126,10 @@ void print_array(SDL_Surface* screen, int* a, int l) {
 
 
 
-void iterate_plane(int iteration, SDL_Surface* screen) {
-	int x,y;
-	static complex float* path[MAXITER];
+void iterate_plane(int n, SDL_Surface* screen) {
+	int x,y,i,iteration;
+	static complex float path[MAXITER];
+	complex float z;
 
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
@@ -147,8 +138,20 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
 			//setPixel(screen, x, y, (float)(iterate_point(Y2REAL(y) + X2IMG(x)*I, 2, iteration))/iteration);
-			setPixel(screen, x, y, (float)(opt_iterate_point(Y2REAL(y), X2IMG(x), 2, iteration, path))/iteration);
+			//setPixel(screen, x, y, (float)(opt_iterate_point(Y2REAL(y), X2IMG(x), 2, iteration, path))/iteration);
+			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
+			if (iteration < MAXITER) {
+				for (i=0; i<iteration; i++) {
+					//fprintf(stderr, "before->");
+					z = path[i];
+					//fprintf(stderr, "after\n");
+					setPixel(screen, IMG2X(cimag(z)), REAL2Y(creal(z)), (float)iteration/MAXITER);
+				}
+			}
 		}
+				if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+				SDL_Flip(screen);
+
 	}
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 	SDL_Flip(screen);
