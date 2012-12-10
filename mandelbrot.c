@@ -3,10 +3,11 @@
 #include <complex.h>
 #include "SDL/SDL.h"
 
+#define MINITER 10000
 #define MAXITER 100000
 #define SQR_ABS_MAX 7
-#define WIDTH 1400
-#define HEIGHT 1050
+#define WIDTH 1024
+#define HEIGHT 768
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
 #define BPP 4
@@ -114,9 +115,13 @@ void setPixel(SDL_Surface* screen, int x, int y, float shade) {
 
 
 void print_array(SDL_Surface* screen, int* a, int l) {
-	int i,x,y,max=0;
+	int i;
+	int max=0;
 	for (i=0; i<l; i++) {
-		if (a[i] > max) max = a[i];
+		if (a[i] > max) {
+			max = a[i];
+			//fprintf(stderr, "max value: %i\n", max);
+		}
 	}
 	for (i=0; i<l; i++) {
 		setPixel(screen, i%WIDTH, i/WIDTH, (float)a[i]/max);
@@ -127,30 +132,35 @@ void print_array(SDL_Surface* screen, int* a, int l) {
 
 
 void iterate_plane(int n, SDL_Surface* screen) {
-	int x,y,i,iteration;
+	int x,y,i,iteration,offset;
 	static complex float path[MAXITER];
 	complex float z;
-
+	static int a[WIDTH*HEIGHT];	
+	
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
 	}
+
 
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
 			//setPixel(screen, x, y, (float)(iterate_point(Y2REAL(y) + X2IMG(x)*I, 2, iteration))/iteration);
 			//setPixel(screen, x, y, (float)(opt_iterate_point(Y2REAL(y), X2IMG(x), 2, iteration, path))/iteration);
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
-			if (iteration < MAXITER) {
+			if (iteration < MAXITER && iteration > MINITER) {
 				for (i=0; i<iteration; i++) {
-					//fprintf(stderr, "before->");
 					z = path[i];
-					//fprintf(stderr, "after\n");
-					setPixel(screen, IMG2X(cimag(z)), REAL2Y(creal(z)), (float)iteration/MAXITER);
+					//setPixel(screen, IMG2X(cimag(z)), REAL2Y(creal(z)), (float)iteration/MAXITER);
+					offset = IMG2X(cimag(z))+REAL2Y(creal(z))*WIDTH;
+					if (offset >= 0 && offset < WIDTH*HEIGHT) {
+						a[offset]++;
+					}
 				}
 			}
 		}
-				if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-				SDL_Flip(screen);
+		print_array(screen, &a, WIDTH*HEIGHT);
+		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+		SDL_Flip(screen);
 
 	}
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
@@ -185,20 +195,22 @@ int main(int argc, char* argv[]) {
 	iterate_plane(iteration++, screen);
 	//random_buddha_plane(screen, 2000, 10000, WIDTH*HEIGHT/100);	
 	//SDL_SaveBMP_RW(screen, file, 1);
-	SDL_Quit();
-	return 0;
+	//SDL_Quit();
+	//return 0;
 	
 	while(1) {
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 				case SDL_QUIT:
 					fprintf(stderr, "quitting!\n");
-					//SDL_SaveBMP_RW(screen, file, 1);
-					SDL_Quit();
+					SDL_SaveBMP_RW(screen, file, 1);
 					return 0;
 					break;
 				case SDL_KEYDOWN:
-					iterate_plane(iteration++, screen);
+					//iterate_plane(iteration++, screen);
+					SDL_SaveBMP_RW(screen, file, 1);
+					SDL_Quit();
+					return 0;
 					break;
 				case SDL_MOUSEBUTTONDOWN:
 					//iterate_plane(iteration++, screen);
