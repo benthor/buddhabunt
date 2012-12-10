@@ -3,11 +3,10 @@
 #include <complex.h>
 #include "SDL/SDL.h"
 
-#define MINITER 10000
+#define MINITER 100
 #define MAXITER 100000
-#define SQR_ABS_MAX 7
-#define WIDTH 1024
-#define HEIGHT 768
+#define WIDTH 1400
+#define HEIGHT 1040
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
 #define BPP 4
@@ -29,12 +28,6 @@
 #define IMG2X(img) ((int)((img-IMG_MIN)/X_ZOOM)%WIDTH)
 #define REAL2Y(real) ((int)((real-REAL_MIN)/Y_ZOOM)%HEIGHT)
 
-// squared absolute of complex number
-#define SQR_ABS(real,imag) (real*real + imag*imag)
-
-#define RAND_X (rand()%WIDTH)
-#define RAND_Y (rand()%HEIGHT)
-
 
 // c : point in the complex plane
 // z : critical point (which for n iterations either stays within a radius s or escapes)
@@ -43,35 +36,11 @@
 int iterate_point(complex float c, float s, int n) {
 	int iteration = 0;
 	complex float z = 0 + 0*I;
-	//complex float next_z;
-	//float real = 0;
-	//float img = 0;
 
 
-	//float real_tmp, img_tmp;
-
+	//cabs(z) function call is expensive... probably does a sqrt somewhere
 	while ( cabs(z) <= s && iteration++ < n) {
 		z = z*z + c;
-		//z = next_z;
-		//real_tmp = NEXT_REAL(real,img,c_real);
-		//img_tmp = NEXT_IMAG(real,img,c_img);
-		//img = img_tmp; real = real_tmp;
-
-				
-		// slower:
-		//current = creal(current)*creal(current) - cimag(current)*cimag(current) + creal(cpoint)
-		//	  + (2*creal(current)*cimag(current) + cimag(cpoint))*I;
-		// slowest:
-		//current = iterate_step(current, cpoint);
-		
-
-	
-		// fastest:
-		//square_absolute = SQR_ABS(real,img);
-		// slower:
-		//square_absolute = creal(current)*creal(current) + cimag(current)*cimag(current);
-		// slowest:
-		//square_absolute = cabs(current); 
 	}
 
 	return iteration;
@@ -101,30 +70,37 @@ int opt_iterate_point(float c_real, float c_imag, float s, int n, complex float*
 
 
 
-void setPixel(SDL_Surface* screen, int x, int y, float shade) {
-	if (x < 0 || y < 0) return;
+void setPixel(SDL_Surface* screen, int x, int y, float shade, float ratio) {
 	Uint32* pixmem32; 
+	float r,g,b;	
+	r = 2*(0.5 - ratio);
+	if (r < 0) r = 0;
+	g = ratio/0.5;
+	if (g > 1) g = 2 - g;
+	b = 2*(-0.5 + ratio);
+	if (b < 0) b = 0;
+
+	if (x < 0 || y < 0) return;
 	
 	pixmem32 = (Uint32*) screen->pixels + x + y*screen->w; 
 
 	// TODO: check out if we could do cool stuff with an alpha channel here as well
-	*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(shade*255), (Uint8)(shade*255), (Uint8)(shade*255));
+	*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(r*shade*255), (Uint8)(g*shade*255), (Uint8)(b*shade*255));
 	//fprintf(stderr, "after\n");
 }
 
 
 
-void print_array(SDL_Surface* screen, int* a, int l) {
+void print_array(SDL_Surface* screen, int* a, int l, float ratio) {
 	int i;
 	int max=0;
 	for (i=0; i<l; i++) {
 		if (a[i] > max) {
 			max = a[i];
-			//fprintf(stderr, "max value: %i\n", max);
 		}
 	}
 	for (i=0; i<l; i++) {
-		setPixel(screen, i%WIDTH, i/WIDTH, (float)a[i]/max);
+		setPixel(screen, i%WIDTH, i/WIDTH, (float)a[i]/max, ratio);
 	}
 }
 
@@ -136,6 +112,7 @@ void iterate_plane(int n, SDL_Surface* screen) {
 	static complex float path[MAXITER];
 	complex float z;
 	static int a[WIDTH*HEIGHT];	
+	float ratio;
 	
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
@@ -144,25 +121,23 @@ void iterate_plane(int n, SDL_Surface* screen) {
 
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
-			//setPixel(screen, x, y, (float)(iterate_point(Y2REAL(y) + X2IMG(x)*I, 2, iteration))/iteration);
-			//setPixel(screen, x, y, (float)(opt_iterate_point(Y2REAL(y), X2IMG(x), 2, iteration, path))/iteration);
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
 			if (iteration < MAXITER && iteration > MINITER) {
+				ratio = ((iteration-MINITER)/(MAXITER-MINITER));
 				for (i=0; i<iteration; i++) {
 					z = path[i];
-					//setPixel(screen, IMG2X(cimag(z)), REAL2Y(creal(z)), (float)iteration/MAXITER);
 					offset = IMG2X(cimag(z))+REAL2Y(creal(z))*WIDTH;
-					if (offset >= 0 && offset < WIDTH*HEIGHT) {
+					if (offset >= 0) {
 						a[offset]++;
 					}
 				}
+				print_array(screen, &a, WIDTH*HEIGHT, ratio);
+				if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+				SDL_Flip(screen);
 			}
 		}
-		print_array(screen, &a, WIDTH*HEIGHT);
-		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-		SDL_Flip(screen);
-
 	}
+
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 	SDL_Flip(screen);
 }
@@ -191,12 +166,7 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	//first iteration
-	iterate_plane(iteration++, screen);
-	//random_buddha_plane(screen, 2000, 10000, WIDTH*HEIGHT/100);	
-	//SDL_SaveBMP_RW(screen, file, 1);
-	//SDL_Quit();
-	//return 0;
+	iterate_plane(iteration, screen);
 	
 	while(1) {
 		while (SDL_PollEvent(&event)) {
@@ -208,6 +178,7 @@ int main(int argc, char* argv[]) {
 					break;
 				case SDL_KEYDOWN:
 					//iterate_plane(iteration++, screen);
+					fprintf(stderr, "quitting!\n");
 					SDL_SaveBMP_RW(screen, file, 1);
 					SDL_Quit();
 					return 0;
