@@ -3,7 +3,7 @@
 #include <complex.h>
 #include "SDL/SDL.h"
 
-#define MAXITER 1000000
+#define MAXITER 1000
 #define SQR_ABS_MAX 7
 #define WIDTH 1400
 #define HEIGHT 1050
@@ -78,7 +78,8 @@ int iterate_point(complex float c, float s, int n) {
 
 
 // optimized implementation of the above 
-int opt_iterate_point(float c_real, float c_imag, float s, int n) {
+// added array pointer to write values to
+int opt_iterate_point(float c_real, float c_imag, float s, int n, complex float* path) {
 	int iteration = 0;
 	float z_real = 0;
 	float z_imag = 0;
@@ -87,11 +88,12 @@ int opt_iterate_point(float c_real, float c_imag, float s, int n) {
 	// optimization: replace sqrt in calc of abs on the on side with a square on the other:
 	s = s*s;
 	// so no need to use sqrt here:
-	while (z_real*z_real + z_imag*z_imag <= s && iteration++ < n) {
+	while (z_real*z_real + z_imag*z_imag <= s && iteration < n) {
 		z_real_next = NEXT_REAL(z_real,z_imag,c_real);
 		z_imag_next = NEXT_IMAG(z_real,z_imag,c_imag);
 		z_real = z_real_next;
 		z_imag = z_imag_next;
+		path[iteration++] = z_real + z_imag*I;
 	}
 	return iteration;
 }
@@ -134,82 +136,9 @@ void print_array(SDL_Surface* screen, int* a, int l) {
 
 
 
-void random_buddha_plane(SDL_Surface* screen, int min_iter, int max_iter, int maxpoints) {
-
-	int counter = 0;
-	int x,y;
-	float curr_real;
-	float curr_img;
-	float point_real, point_img, next_real, next_img;
-	int tmp;
-
-	static int buffer[BUFFSIZE];
-	static int current[CURRSIZE];
-	
-	int i,j;
-
-	for (i=0; i<BUFFSIZE; buffer[i++]=0);
-	for (i=0; i<CURRSIZE; current[i++]=0);
-
-	while (counter < maxpoints) {
-		x = RAND_X;
-		y = RAND_Y;
-		curr_real = 0;
-		curr_img  = 0;
-		point_real=Y2REAL(y);
-		point_img=X2IMG(x);
-		//tmp = iterate_point(point_real, point_img, 7, max_iter);
-
-		current[0] = 0;
-		current[1] = 0;
-		i = 1;
-		fprintf(stderr, "before->");
-		while (i<(CURRSIZE-2)) {
-			if (SQR_ABS(current[i-1],current[i]) >= SQR_ABS_MAX) {
-				if (i>min_iter) {
-					j = 0;
-					while (j < i) {
-						// MESSY
-						//fprintf(stderr, "real: %d, imag: %d\n", current[j], current[j+1]);
-						if (REAL2Y(current[j-1]) >= 0 && IMG2X(current[j]) >= 0) {
-							buffer[IMG2X(current[j])+WIDTH*REAL2Y(current[j-1])]++;
-						}
-						j+=2;
-					}
-					fprintf(stderr, "after\n");
-					if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-					print_array(screen, buffer, BUFFSIZE);
-					SDL_Flip(screen);
-					counter++;
-				}
-				break;
-			}
-			//I know this is messy
-			current[i+1] = NEXT_REAL(current[i-1],current[i],point_real);
-			current[i+2] = NEXT_IMAG(current[i-1],current[i],point_img);
-			i+=2;
-		}
-		
-		/*if (tmp >= min_iter && tmp < max_iter) {
-			counter++;
-			setPixel(screen, x, y, 0.5);
-			while (SQR_ABS(curr_real, curr_img) < 7 && IMG2X(curr_img) >= 0 && REAL2Y(curr_real) >= 0) {
-				//fprintf(stderr,"x = %i, y = %i\n", IMG2X(curr_img), REAL2Y(curr_real));
-				buffer[IMG2X(curr_img)+WIDTH*REAL2Y(curr_real)]++;
-				//setPixel(screen, IMG2X(curr_img), REAL2Y(curr_real), 1);
-				next_real = NEXT_REAL(curr_real, curr_img, point_real);
-				next_img  = NEXT_IMAG(curr_real, curr_img, point_img);
-				curr_real = next_real;
-				curr_img  = next_img;
-			}
-			
-		}*/
-	}
-	//SDL_Flip(screen);
-}
-
 void iterate_plane(int iteration, SDL_Surface* screen) {
 	int x,y;
+	static complex float* path[MAXITER];
 
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
@@ -218,7 +147,7 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
 			//setPixel(screen, x, y, (float)(iterate_point(Y2REAL(y) + X2IMG(x)*I, 2, iteration))/iteration);
-			setPixel(screen, x, y, (float)(opt_iterate_point(Y2REAL(y), X2IMG(x), 2, iteration))/iteration);
+			setPixel(screen, x, y, (float)(opt_iterate_point(Y2REAL(y), X2IMG(x), 2, iteration, path))/iteration);
 		}
 	}
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
@@ -233,7 +162,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	int keypress = 0;
-	int iteration = 10000;
+	int iteration = MAXITER;
 
 	SDL_RWops* file;
 	file = SDL_RWFromFile("output.bmp", "wb");
