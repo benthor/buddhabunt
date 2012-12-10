@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-//#include <complex.h>
+#include <complex.h>
 #include "SDL/SDL.h"
 
 #define MAXITER 1000000
@@ -28,57 +28,71 @@
 #define IMG2X(img) ((int)((img-IMG_MIN)/X_ZOOM)%WIDTH)
 #define REAL2Y(real) ((int)((real-REAL_MIN)/Y_ZOOM)%HEIGHT)
 
-#define SQR_ABS(x,y) (x*x + y*y)
+// squared absolute of complex number
+#define SQR_ABS(real,imag) (real*real + imag*imag)
 
 #define RAND_X (rand()%WIDTH)
 #define RAND_Y (rand()%HEIGHT)
 
-/*
-//this stuff is way too damn slow
-//requires -lm to compile
-complex float iterate_step(complex float start, complex float cpoint) {
-	float start_real = creal(start);
-	float start_img = cimag(start);
-	float cpoint_real = creal(cpoint);
-	float cpoint_img = cimag(cpoint);
-	return (start_real*start_real - start_img*start_img + cpoint_real) 
-		+ (2*start_real*start_img + cpoint_img)*I;
-}
-*/
 
-
-int iterate_point(float c_real, float c_img, float max_square_absolute, int max_iteration) {
-	float square_absolute = 0;
+// c : point in the complex plane
+// z : critical point (which for n iterations either stays within a radius s or escapes)
+// s : the radius that z must not exceed after n iterations
+// n : iterations after which a "still not diverged" z means that c can be considered to be in the set
+int iterate_point(complex float c, float s, int n) {
 	int iteration = 0;
-	//complex float cpoint = c_real + c_img * I;
-	//complex float current = 0 + 0*I;
-	float real = 0;
-	float img = 0;
+	complex float z = 0 + 0*I;
+	//complex float next_z;
+	//float real = 0;
+	//float img = 0;
 
 
-	float real_tmp, img_tmp;
+	//float real_tmp, img_tmp;
 
-	while ( square_absolute <= max_square_absolute && iteration < max_iteration ) {
-		real_tmp = NEXT_REAL(real,img,c_real);
-		img_tmp = NEXT_IMAG(real,img,c_img);
-		img = img_tmp; real = real_tmp;
-		
+	while ( cabs(z) <= s && iteration++ < n) {
+		z = z*z + c;
+		//z = next_z;
+		//real_tmp = NEXT_REAL(real,img,c_real);
+		//img_tmp = NEXT_IMAG(real,img,c_img);
+		//img = img_tmp; real = real_tmp;
+
+				
 		// slower:
 		//current = creal(current)*creal(current) - cimag(current)*cimag(current) + creal(cpoint)
 		//	  + (2*creal(current)*cimag(current) + cimag(cpoint))*I;
 		// slowest:
 		//current = iterate_step(current, cpoint);
+		
 
-		iteration++;
 	
 		// fastest:
-		square_absolute = SQR_ABS(real,img);
+		//square_absolute = SQR_ABS(real,img);
 		// slower:
 		//square_absolute = creal(current)*creal(current) + cimag(current)*cimag(current);
 		// slowest:
 		//square_absolute = cabs(current); 
 	}
 
+	return iteration;
+}
+
+
+// optimized implementation of the above 
+int opt_iterate_point(float c_real, float c_imag, float s, int n) {
+	int iteration = 0;
+	float z_real = 0;
+	float z_imag = 0;
+	float z_real_next, z_imag_next;
+	
+	// optimization: replace sqrt in calc of abs on the on side with a square on the other:
+	s = s*s;
+	// so no need to use sqrt here:
+	while (z_real*z_real + z_imag*z_imag <= s && iteration++ < n) {
+		z_real_next = NEXT_REAL(z_real,z_imag,c_real);
+		z_imag_next = NEXT_IMAG(z_real,z_imag,c_imag);
+		z_real = z_real_next;
+		z_imag = z_imag_next;
+	}
 	return iteration;
 }
 
@@ -203,7 +217,8 @@ void iterate_plane(int iteration, SDL_Surface* screen) {
 
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
-			setPixel(screen, x, y, (float)(iterate_point(Y2REAL(y), X2IMG(x), 7, iteration))/iteration);
+			//setPixel(screen, x, y, (float)(iterate_point(Y2REAL(y) + X2IMG(x)*I, 2, iteration))/iteration);
+			setPixel(screen, x, y, (float)(opt_iterate_point(Y2REAL(y), X2IMG(x), 2, iteration))/iteration);
 		}
 	}
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
@@ -218,7 +233,7 @@ int main(int argc, char* argv[]) {
 	SDL_Event event;
 
 	int keypress = 0;
-	int iteration = 1000;
+	int iteration = 10000;
 
 	SDL_RWops* file;
 	file = SDL_RWFromFile("output.bmp", "wb");
@@ -235,18 +250,18 @@ int main(int argc, char* argv[]) {
 	}
 
 	//first iteration
-	//iterate_plane(iteration++, screen);
-	random_buddha_plane(screen, 2000, 10000, WIDTH*HEIGHT/100);	
-	SDL_SaveBMP_RW(screen, file, 1);
-	//SDL_Quit();
-	//return 0;
+	iterate_plane(iteration++, screen);
+	//random_buddha_plane(screen, 2000, 10000, WIDTH*HEIGHT/100);	
+	//SDL_SaveBMP_RW(screen, file, 1);
+	SDL_Quit();
+	return 0;
 	
 	while(1) {
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 				case SDL_QUIT:
 					fprintf(stderr, "quitting!\n");
-					SDL_SaveBMP_RW(screen, file, 1);
+					//SDL_SaveBMP_RW(screen, file, 1);
 					SDL_Quit();
 					return 0;
 					break;
@@ -256,7 +271,7 @@ int main(int argc, char* argv[]) {
 				case SDL_MOUSEBUTTONDOWN:
 					//iterate_plane(iteration++, screen);
 					fprintf(stderr, "mouse x:%i, mouse y:%i\n", event.button.x, event.button.y);
-					trace_point(screen, Y2REAL(event.button.y), X2IMG(event.button.x), 0, 10);
+					//trace_point(screen, Y2REAL(event.button.y), X2IMG(event.button.x), 0, 10);
 					break;
 			}
 		}
