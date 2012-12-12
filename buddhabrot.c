@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <complex.h>
 #include "SDL/SDL.h"
+#include <math.h>
 
-#define MINITER 100
-#define MAXITER 100000
-#define WIDTH 1400
-#define HEIGHT 1040
+#define MINITER 5000
+#define MAXITER 150000
+#define WIDTH 2800
+#define HEIGHT 2080
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
 #define BPP 4
@@ -73,14 +74,18 @@ int opt_iterate_point(float c_real, float c_imag, float s, int n, complex float*
 void setPixel(SDL_Surface* screen, int x, int y, float shade, float ratio) {
 	Uint32* pixmem32; 
 	float r,g,b;	
-	r = 2*(0.5 - ratio);
+	/*r = 2*(0.5 - ratio);
 	if (r < 0) r = 0;
 	g = ratio/0.5;
 	if (g > 1) g = 2 - g;
 	b = 2*(-0.5 + ratio);
-	if (b < 0) b = 0;
+	if (b < 0) b = 0;*/
 
 	if (x < 0 || y < 0) return;
+
+	r=1;
+	g=1;
+	b=1;
 	
 	pixmem32 = (Uint32*) screen->pixels + x + y*screen->w; 
 
@@ -100,7 +105,7 @@ void print_array(SDL_Surface* screen, int* a, int l, float ratio) {
 		}
 	}
 	for (i=0; i<l; i++) {
-		setPixel(screen, i%WIDTH, i/WIDTH, (float)a[i]/max, ratio);
+		setPixel(screen, i%WIDTH, i/WIDTH, exp(log((float)a[i]/max)/3), ratio);
 	}
 }
 
@@ -111,8 +116,7 @@ void iterate_plane(int n, SDL_Surface* screen) {
 	int x,y,i,iteration,offset;
 	static complex float path[MAXITER];
 	complex float z;
-	static int a[WIDTH*HEIGHT];	
-	float ratio;
+	static int a[WIDTH*HEIGHT];
 	
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
@@ -122,8 +126,8 @@ void iterate_plane(int n, SDL_Surface* screen) {
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
+			//if (rand() % 2 == 0) continue;
 			if (iteration < MAXITER && iteration > MINITER) {
-				ratio = ((iteration-MINITER)/(MAXITER-MINITER));
 				for (i=0; i<iteration; i++) {
 					z = path[i];
 					offset = IMG2X(cimag(z))+REAL2Y(creal(z))*WIDTH;
@@ -131,13 +135,15 @@ void iterate_plane(int n, SDL_Surface* screen) {
 						a[offset]++;
 					}
 				}
-				print_array(screen, &a, WIDTH*HEIGHT, ratio);
-				if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-				SDL_Flip(screen);
 			}
 		}
+		if (y%20 != 0) continue;
+		print_array(screen, &a, WIDTH*HEIGHT, 0.9);
+		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+		SDL_Flip(screen);
+	//	fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
 	}
-
+	print_array(screen, &a, WIDTH*HEIGHT, 0.1);
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 	SDL_Flip(screen);
 }
@@ -152,8 +158,13 @@ int main(int argc, char* argv[]) {
 	int keypress = 0;
 	int iteration = MAXITER;
 
+	char filename[100];
+
 	SDL_RWops* file;
-	file = SDL_RWFromFile("output.bmp", "wb");
+
+	sprintf(filename, "output_%ix%i_from%ito%i.bmp", WIDTH, HEIGHT, MINITER, MAXITER);
+	
+	file = SDL_RWFromFile(filename, "wb");
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		fprintf(stderr, "Unable to init video: %s\n", SDL_GetError());
