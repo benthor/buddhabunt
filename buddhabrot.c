@@ -4,7 +4,7 @@
 #include "SDL/SDL.h"
 #include <math.h>
 
-#define MINITER 10000
+#define MINITER 1
 #define MAXITER 1000000
 #define WIDTH 780
 #define HEIGHT 1040
@@ -122,12 +122,38 @@ void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
 	}
 }
 
+void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int l) {
+	Uint32* pixmem32;	
+	int i;
+	double maxr=1;
+	double maxg=0;
+	double maxb=0;
+	for (i=0; i<l; i++) {
+		if (r[i] > maxr) maxr = r[i];
+		if (g[i] > maxg) maxg = g[i];
+		if (b[i] > maxb) maxb = b[i];
+	}
+	//fprintf(stderr, "max calculated\n");
+	fprintf(stderr, "maxr %f, maxg %f, maxb %f\n", maxr, maxg, maxb);
+	for (i=0; i<l; i++) {
+		//fprintf(stderr, "pixmem\n");
+		pixmem32 = (Uint32*) screen->pixels + i;
+		//fprintf(stderr, "pixmem done\n");
+		*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(exp(log(r[i]/maxr)/3)*255), (Uint8)(exp(log(g[i]/maxg)/3)*255), (Uint8)(exp(log(b[i]/maxb)/3)*255));
+		//*pixmem32 = SDL_MapRGB(screen->format, (Uint8)r[i]/maxr)*255, (Uint8)sqrt(g[i]/maxg)*255, (Uint8)sqrt(b[i]/maxb)*255);
+		//setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
+	}
+	//fprintf(stderr, "first printed\n");
+}
 
 void iterate_plane(int n, SDL_Surface* screen) {
 	int x,y,i,iteration,offset;
 	static complex double path[MAXITER];
 	complex double z;
-	static int a[WIDTH*HEIGHT];
+	static double r[WIDTH*HEIGHT];
+	static double g[WIDTH*HEIGHT];
+	static double b[WIDTH*HEIGHT];
+	static double red,green,blue,ratio;
 	
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
@@ -139,23 +165,36 @@ void iterate_plane(int n, SDL_Surface* screen) {
 			
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
 			//if (rand() % 2 == 0) continue;
-			if (iteration < MAXITER && iteration > MINITER) {
+			if (iteration > MINITER && iteration < MAXITER) {
 				for (i=0; i<iteration; i++) {
 					z = path[i];
 					offset = IMG2X(cimag(z))+REAL2Y(creal(z))*WIDTH;
 					if (offset >= 0) {
-						a[offset]++;
+						ratio = (double)(iteration-MINITER)/(MAXITER-MINITER);
+
+						red = 2*(0.5 - ratio);
+						if (red < 0) red = 0;
+						r[offset] += red;
+						
+						green = ratio/0.5;
+						if (green > 1) green = 2 - green;
+						g[offset] += green;
+
+						blue = 2*(-0.5 + ratio);
+						if (blue < 0) blue = 0;
+						b[offset] += blue;
 					}
 				}
 			}
 		}
 		if (y%20 != 0) continue;
-		print_array(screen, &a, WIDTH*HEIGHT, 0.9);
+		print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
 		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 		SDL_Flip(screen);
 		fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
 	}
-	print_array(screen, &a, WIDTH*HEIGHT, 0.1);
+	//print_array(screen, &a, WIDTH*HEIGHT, 0.1);
+	print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 	SDL_Flip(screen);
 }
