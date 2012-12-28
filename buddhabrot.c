@@ -4,21 +4,21 @@
 #include "SDL/SDL.h"
 #include <math.h>
 
-#define MINITER 5000
-#define MAXITER 150000
-#define WIDTH 2800
-#define HEIGHT 2080
+#define MINITER 10000
+#define MAXITER 1000000
+#define WIDTH 780
+#define HEIGHT 1040
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
 #define BPP 4
 #define DEPTH 32
-#define IMG_MIN -2
-#define IMG_MAX 2
+#define IMG_MIN -1.125
+#define IMG_MAX 1.125
 #define REAL_MIN -2
 #define REAL_MAX 1
 
-#define X_ZOOM (((float)IMG_MAX-IMG_MIN)/WIDTH)
-#define Y_ZOOM (((float)REAL_MAX-REAL_MIN)/HEIGHT)
+#define X_ZOOM (((double)IMG_MAX-IMG_MIN)/WIDTH)
+#define Y_ZOOM (((double)REAL_MAX-REAL_MIN)/HEIGHT)
 
 #define NEXT_REAL(curr_real, curr_img, point_real) (curr_real*curr_real - curr_img*curr_img + point_real)
 #define NEXT_IMAG(curr_real, curr_img, point_img) (2*curr_real*curr_img + point_img)
@@ -29,14 +29,16 @@
 #define IMG2X(img) ((int)((img-IMG_MIN)/X_ZOOM)%WIDTH)
 #define REAL2Y(real) ((int)((real-REAL_MIN)/Y_ZOOM)%HEIGHT)
 
+#define SQR(x) ((x)*(x))
+
 
 // c : point in the complex plane
 // z : critical point (which for n iterations either stays within a radius s or escapes)
 // s : the radius that z must not exceed after n iterations
 // n : iterations after which a "still not diverged" z means that c can be considered to be in the set
-int iterate_point(complex float c, float s, int n) {
+int iterate_point(complex double c, double s, int n) {
 	int iteration = 0;
-	complex float z = 0 + 0*I;
+	complex double z = 0 + 0*I;
 
 
 	//cabs(z) function call is expensive... probably does a sqrt somewhere
@@ -50,11 +52,22 @@ int iterate_point(complex float c, float s, int n) {
 
 // optimized implementation of the above 
 // added array pointer to write values to
-int opt_iterate_point(float c_real, float c_imag, float s, int n, complex float* path) {
+int opt_iterate_point(double c_real, double c_imag, double s, int n, complex double* path) {
 	int iteration = 0;
-	float z_real = 0;
-	float z_imag = 0;
-	float z_real_next, z_imag_next;
+	double z_real = 0;
+	double z_imag = 0;
+	double z_real_next, z_imag_next;
+	double q = SQR(c_real - 0.25) + SQR(c_imag);
+	//double q = SQR(c_real) - c_real/2 + 1/16 + SQR(c_imag);
+
+	if (q * (q + (c_real - 0.25)) < 0.25 * SQR(c_imag)) { 
+		return n;
+		//return n;	
+	}
+	if (SQR(c_real + 1) + SQR(c_imag) < 0.0625) {
+		//fprintf(stderr, "secondary cutoff!\n");	
+		return n;
+	}
 	
 	// optimization: replace sqrt in calc of abs on the on side with a square on the other:
 	s = s*s;
@@ -71,9 +84,9 @@ int opt_iterate_point(float c_real, float c_imag, float s, int n, complex float*
 
 
 
-void setPixel(SDL_Surface* screen, int x, int y, float shade, float ratio) {
+void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
 	Uint32* pixmem32; 
-	float r,g,b;	
+	double r,g,b;	
 	/*r = 2*(0.5 - ratio);
 	if (r < 0) r = 0;
 	g = ratio/0.5;
@@ -96,7 +109,7 @@ void setPixel(SDL_Surface* screen, int x, int y, float shade, float ratio) {
 
 
 
-void print_array(SDL_Surface* screen, int* a, int l, float ratio) {
+void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
 	int i;
 	int max=0;
 	for (i=0; i<l; i++) {
@@ -105,17 +118,15 @@ void print_array(SDL_Surface* screen, int* a, int l, float ratio) {
 		}
 	}
 	for (i=0; i<l; i++) {
-		setPixel(screen, i%WIDTH, i/WIDTH, exp(log((float)a[i]/max)/3), ratio);
+		setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
 	}
 }
 
 
-
-
 void iterate_plane(int n, SDL_Surface* screen) {
 	int x,y,i,iteration,offset;
-	static complex float path[MAXITER];
-	complex float z;
+	static complex double path[MAXITER];
+	complex double z;
 	static int a[WIDTH*HEIGHT];
 	
 	if (SDL_MUSTLOCK(screen)) {
@@ -125,6 +136,7 @@ void iterate_plane(int n, SDL_Surface* screen) {
 
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
+			
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
 			//if (rand() % 2 == 0) continue;
 			if (iteration < MAXITER && iteration > MINITER) {
@@ -141,7 +153,7 @@ void iterate_plane(int n, SDL_Surface* screen) {
 		print_array(screen, &a, WIDTH*HEIGHT, 0.9);
 		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 		SDL_Flip(screen);
-	//	fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
+		fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
 	}
 	print_array(screen, &a, WIDTH*HEIGHT, 0.1);
 	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
