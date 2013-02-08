@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <complex.h>
+//#include <complex.h>
 #include "SDL/SDL.h"
 #include <math.h>
 
 #define MINITER 950
-#define MAXITER 16000
+#define MAXITER 160000
 #define FACTOR 1
 #define WIDTH (390 * FACTOR)
 #define HEIGHT (520 * FACTOR)
@@ -32,7 +32,7 @@
 
 #define SQR(x) ((x)*(x))
 
-
+/*
 // c : point in the complex plane
 // z : critical point (which for n iterations either stays within a radius s or escapes)
 // s : the radius that z must not exceed after n iterations
@@ -47,7 +47,7 @@ int iterate_point(complex double c, double s, int n) {
 	}
 
 	return iteration;
-}
+}*/
 
 
 // optimized implementation of the above 
@@ -60,6 +60,8 @@ int opt_iterate_point(double c_real, double c_imag, double s, int n, double* pat
 	double q = SQR(c_real - 0.25) + SQR(c_imag);
 	//double q = SQR(c_real) - c_real/2 + 1/16 + SQR(c_imag);
 
+
+    // filter out main mandelbrot cardioid
 	if (q * (q + (c_real - 0.25)) < 0.25 * SQR(c_imag)) { 
 		return n;
 		//return n;	
@@ -126,7 +128,7 @@ void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
 void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int l) {
 	Uint32* pixmem32;	
 	int i;
-	double maxr=1;
+	double maxr=0;
 	double maxg=0;
 	double maxb=0;
 	for (i=0; i<l; i++) {
@@ -137,21 +139,17 @@ void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int
 	//fprintf(stderr, "max calculated\n");
 	//fprintf(stderr, "maxr %f, maxg %f, maxb %f\n", maxr, maxg, maxb);
 	for (i=0; i<l; i++) {
-		//fprintf(stderr, "pixmem\n");
 		pixmem32 = (Uint32*) screen->pixels + i;
-		//fprintf(stderr, "pixmem done\n");
+        //squeeze dynamic range by taking the third root of the ratios (which are doubles between 0 and 1)
 		*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(exp(log(r[i]/maxr)/3)*255), (Uint8)(exp(log(g[i]/maxg)/3)*255), (Uint8)(exp(log(b[i]/maxb)/3)*255));
 		//*pixmem32 = SDL_MapRGB(screen->format, (Uint8)r[i]/maxr)*255, (Uint8)sqrt(g[i]/maxg)*255, (Uint8)sqrt(b[i]/maxb)*255);
 		//setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
 	}
-	//fprintf(stderr, "first printed\n");
 }
 
 void iterate_plane(int n, SDL_Surface* screen) {
 	int x,y,i,iteration,offset;
-	//static complex 
     static double path[MAXITER*2];
-	//complex double z;
     double real, imag;
 	static double r[WIDTH*HEIGHT];
 	static double g[WIDTH*HEIGHT];
@@ -171,13 +169,12 @@ void iterate_plane(int n, SDL_Surface* screen) {
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
 			if (rand() % 5 != 0) continue;
 			if (iteration > MINITER && iteration < MAXITER) {
-				for (i=0; i<(iteration*2); i+=2) {
-					//z = path[i];
-                    real = path[i];
-                    imag = path[i+1];
+				for (i=0; i<iteration; i++) {
+                    real = path[i*2];
+                    imag = path[(i*2)+1];
 					offset = IMG2X(imag)+REAL2Y(real)*WIDTH;
 					if (offset >= 0) {
-						//ratio = (double)(iteration-MINITER)/(MAXITER-MINITER);
+						//ratio = (double)(iteration-MINITER)*6.2832/(MAXITER-MINITER);
 						//ratio = (double)i*6.2832/MAXITER;
 						ratio = (double)i*6.2832/iteration ;
 						if (max_until_diverge < iteration) {
@@ -189,18 +186,7 @@ void iterate_plane(int n, SDL_Surface* screen) {
 						} else {
 							b[offset] += (cos(ratio) + 1)*0.5;
 						}
-						//red = 2*(0.5 - ratio);
-						//if (red < 0) red = 0;
-						//r[offset] += red;
-					
 						g[offset] += (-cos(ratio) + 1) * 0.5;	
-						//green = ratio/0.5;
-						//if (green > 1) green = 2 - green;
-						//g[offset] += green;
-							
-						//blue = 2*(-0.5 + ratio);
-						//if (blue < 0) blue = 0;
-						//b[offset] += blue;
 					}
 				}
 			}
