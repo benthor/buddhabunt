@@ -4,11 +4,11 @@
 #include "SDL/SDL.h"
 #include <math.h>
 
-#define MINITER 9500
-#define MAXITER 1600000
-#define FACTOR 12
-#define WIDTH (780 * FACTOR)
-#define HEIGHT (1040 * FACTOR)
+#define MINITER 950
+#define MAXITER 16000
+#define FACTOR 1
+#define WIDTH (390 * FACTOR)
+#define HEIGHT (520 * FACTOR)
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
 #define BPP 4
@@ -52,7 +52,7 @@ int iterate_point(complex double c, double s, int n) {
 
 // optimized implementation of the above 
 // added array pointer to write values to
-int opt_iterate_point(double c_real, double c_imag, double s, int n, complex double* path) {
+int opt_iterate_point(double c_real, double c_imag, double s, int n, double* path) {
 	int iteration = 0;
 	double z_real = 0;
 	double z_imag = 0;
@@ -72,14 +72,15 @@ int opt_iterate_point(double c_real, double c_imag, double s, int n, complex dou
 	// optimization: replace sqrt in calc of abs on the on side with a square on the other:
 	s = s*s;
 	// so no need to use sqrt here:
-	while (z_real*z_real + z_imag*z_imag <= s && iteration < n) {
+	while (z_real*z_real + z_imag*z_imag <= s && (iteration/2) < n) {
 		z_real_next = NEXT_REAL(z_real,z_imag,c_real);
 		z_imag_next = NEXT_IMAG(z_real,z_imag,c_imag);
 		z_real = z_real_next;
 		z_imag = z_imag_next;
-		path[iteration++] = z_real + z_imag*I;
+		path[iteration++] = z_real;
+        path[iteration++] = z_imag;
 	}
-	return iteration;
+	return iteration/2;
 }
 
 
@@ -148,8 +149,10 @@ void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int
 
 void iterate_plane(int n, SDL_Surface* screen) {
 	int x,y,i,iteration,offset;
-	static complex double path[MAXITER];
-	complex double z;
+	//static complex 
+    static double path[MAXITER*2];
+	//complex double z;
+    double real, imag;
 	static double r[WIDTH*HEIGHT];
 	static double g[WIDTH*HEIGHT];
 	static double b[WIDTH*HEIGHT];
@@ -168,9 +171,11 @@ void iterate_plane(int n, SDL_Surface* screen) {
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
 			if (rand() % 5 != 0) continue;
 			if (iteration > MINITER && iteration < MAXITER) {
-				for (i=0; i<iteration; i++) {
-					z = path[i];
-					offset = IMG2X(cimag(z))+REAL2Y(creal(z))*WIDTH;
+				for (i=0; i<(iteration*2); i+=2) {
+					//z = path[i];
+                    real = path[i];
+                    imag = path[i+1];
+					offset = IMG2X(imag)+REAL2Y(real)*WIDTH;
 					if (offset >= 0) {
 						//ratio = (double)(iteration-MINITER)/(MAXITER-MINITER);
 						//ratio = (double)i*6.2832/MAXITER;
