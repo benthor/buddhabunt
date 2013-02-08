@@ -4,10 +4,11 @@
 #include "SDL/SDL.h"
 #include <math.h>
 
-#define MINITER 1
-#define MAXITER 1000000
-#define WIDTH 780
-#define HEIGHT 1040
+#define MINITER 9500
+#define MAXITER 1600000
+#define FACTOR 12
+#define WIDTH (780 * FACTOR)
+#define HEIGHT (1040 * FACTOR)
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
 #define BPP 4
@@ -39,7 +40,6 @@
 int iterate_point(complex double c, double s, int n) {
 	int iteration = 0;
 	complex double z = 0 + 0*I;
-
 
 	//cabs(z) function call is expensive... probably does a sqrt somewhere
 	while ( cabs(z) <= s && iteration++ < n) {
@@ -134,7 +134,7 @@ void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int
 		if (b[i] > maxb) maxb = b[i];
 	}
 	//fprintf(stderr, "max calculated\n");
-	fprintf(stderr, "maxr %f, maxg %f, maxb %f\n", maxr, maxg, maxb);
+	//fprintf(stderr, "maxr %f, maxg %f, maxb %f\n", maxr, maxg, maxb);
 	for (i=0; i<l; i++) {
 		//fprintf(stderr, "pixmem\n");
 		pixmem32 = (Uint32*) screen->pixels + i;
@@ -154,6 +154,8 @@ void iterate_plane(int n, SDL_Surface* screen) {
 	static double g[WIDTH*HEIGHT];
 	static double b[WIDTH*HEIGHT];
 	static double red,green,blue,ratio;
+
+	int max_until_diverge = 0;
 	
 	if (SDL_MUSTLOCK(screen)) {
 		if (SDL_LockSurface(screen) < 0 ) return;
@@ -164,30 +166,42 @@ void iterate_plane(int n, SDL_Surface* screen) {
 		for (x=0; x<WIDTH; x++) {
 			
 			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
-			//if (rand() % 2 == 0) continue;
+			if (rand() % 5 != 0) continue;
 			if (iteration > MINITER && iteration < MAXITER) {
 				for (i=0; i<iteration; i++) {
 					z = path[i];
 					offset = IMG2X(cimag(z))+REAL2Y(creal(z))*WIDTH;
 					if (offset >= 0) {
-						ratio = (double)(iteration-MINITER)/(MAXITER-MINITER);
-
-						red = 2*(0.5 - ratio);
-						if (red < 0) red = 0;
-						r[offset] += red;
-						
-						green = ratio/0.5;
-						if (green > 1) green = 2 - green;
-						g[offset] += green;
-
-						blue = 2*(-0.5 + ratio);
-						if (blue < 0) blue = 0;
-						b[offset] += blue;
+						//ratio = (double)(iteration-MINITER)/(MAXITER-MINITER);
+						//ratio = (double)i*6.2832/MAXITER;
+						ratio = (double)i*6.2832/iteration ;
+						if (max_until_diverge < iteration) {
+							max_until_diverge = iteration;
+							fprintf(stderr, "max iteration found so far: %i\n", max_until_diverge);
+						}
+						if (ratio > M_PI) {
+							r[offset] += (cos(ratio) + 1)*0.5;
+						} else {
+							b[offset] += (cos(ratio) + 1)*0.5;
+						}
+						//red = 2*(0.5 - ratio);
+						//if (red < 0) red = 0;
+						//r[offset] += red;
+					
+						g[offset] += (-cos(ratio) + 1) * 0.5;	
+						//green = ratio/0.5;
+						//if (green > 1) green = 2 - green;
+						//g[offset] += green;
+							
+						//blue = 2*(-0.5 + ratio);
+						//if (blue < 0) blue = 0;
+						//b[offset] += blue;
 					}
 				}
 			}
 		}
-		if (y%20 != 0) continue;
+		//HACK
+		if (y%(10*FACTOR) != 0) continue;
 		print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
 		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 		SDL_Flip(screen);
@@ -229,6 +243,9 @@ int main(int argc, char* argv[]) {
 	}
 
 	iterate_plane(iteration, screen);
+	SDL_SaveBMP_RW(screen, file, 1);
+	SDL_Quit();
+	return 1;
 	
 	while(1) {
 		while (SDL_PollEvent(&event)) {
