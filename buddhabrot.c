@@ -72,7 +72,7 @@ int opt_iterate_point(double c_real, double c_imag, double s, int n, double* pat
 	}
 	
 	// optimization: replace sqrt in calc of abs on the on side with a square on the other:
-	s = s*s;
+	s = SQR(s);
 	// so no need to use sqrt here:
 	while (z_real*z_real + z_imag*z_imag <= s && (iteration/2) < n) {
 		z_real_next = NEXT_REAL(z_real,z_imag,c_real);
