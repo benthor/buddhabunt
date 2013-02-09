@@ -166,8 +166,8 @@ void iterate_plane(int n, SDL_Surface* screen) {
 	for (y=0; y<HEIGHT; y++){
 		for (x=0; x<WIDTH; x++) {
 			
-			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
 			if (rand() % 5 != 0) continue;
+			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
 			if (iteration > MINITER && iteration < MAXITER) {
 				for (i=0; i<iteration; i++) {
                     real = path[i*2];
