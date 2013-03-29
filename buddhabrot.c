@@ -4,6 +4,7 @@
 #include "SDL/SDL.h"
 #include <time.h>
 #include <math.h>
+#include <sys/select.h>
 
 #define MINITER 1000
 #define MAXITER 5000000
@@ -25,6 +26,8 @@
 #define IMG_MAX 1.125
 #define REAL_MIN -2
 #define REAL_MAX 1
+
+#define WORKER 2
 
 #define X_ZOOM (((double)IMG_MAX-IMG_MIN)/WIDTH)
 #define Y_ZOOM (((double)REAL_MAX-REAL_MIN)/HEIGHT)
@@ -240,6 +243,11 @@ static void iterate_plane(SDL_Surface* screen) {
   }
   if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
   SDL_Flip(screen);
+}
+
+static void iterate_plane_fds(SDL_Surface* screen, int* from_worker, int* to_worker) {
+  
+
 }
 
 
