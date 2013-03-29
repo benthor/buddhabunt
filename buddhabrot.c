@@ -38,232 +38,232 @@
 // s : the radius that z must not exceed after n iterations
 // n : iterations after which a "still not diverged" z means that c can be considered to be in the set
 int iterate_point(complex double c, double s, int n) {
-	int iteration = 0;
-	complex double z = 0 + 0*I;
+int iteration = 0;
+complex double z = 0 + 0*I;
 
-	//cabs(z) function call is expensive... probably does a sqrt somewhere
-	while ( cabs(z) <= s && iteration++ < n) {
-		z = z*z + c;
-	}
+//cabs(z) function call is expensive... probably does a sqrt somewhere
+while ( cabs(z) <= s && iteration++ < n) {
+z = z*z + c;
+}
 
-	return iteration;
+return iteration;
 }*/
 
 
 // optimized implementation of the above 
 // added array pointer to write values to
 int opt_iterate_point(double c_real, double c_imag, double s, int n, double* path) {
-	int iteration = 0;
-	double z_real = 0;
-	double z_imag = 0;
-	double z_real_next, z_imag_next;
-	double q = SQR(c_real - 0.25) + SQR(c_imag);
-	//double q = SQR(c_real) - c_real/2 + 1/16 + SQR(c_imag);
+  int iteration = 0;
+  double z_real = 0;
+  double z_imag = 0;
+  double z_real_next, z_imag_next;
+  double q = SQR(c_real - 0.25) + SQR(c_imag);
+  //double q = SQR(c_real) - c_real/2 + 1/16 + SQR(c_imag);
 
 
-    // filter out main mandelbrot cardioid
-	if (q * (q + (c_real - 0.25)) < 0.25 * SQR(c_imag)) { 
-		return n;
-		//return n;	
-	}
-	if (SQR(c_real + 1) + SQR(c_imag) < 0.0625) {
-		//fprintf(stderr, "secondary cutoff!\n");	
-		return n;
-	}
+  // filter out main mandelbrot cardioid
+  if (q * (q + (c_real - 0.25)) < 0.25 * SQR(c_imag)) { 
+    return n;
+    //return n;	
+  }
+  if (SQR(c_real + 1) + SQR(c_imag) < 0.0625) {
+    //fprintf(stderr, "secondary cutoff!\n");	
+    return n;
+  }
 	
-	// optimization: replace sqrt in calc of abs on the on side with a square on the other:
-	s = SQR(s);
-	// so no need to use sqrt here:
-	while (z_real*z_real + z_imag*z_imag <= s && (iteration/2) < n) {
-		z_real_next = NEXT_REAL(z_real,z_imag,c_real);
-		z_imag_next = NEXT_IMAG(z_real,z_imag,c_imag);
-		z_real = z_real_next;
-		z_imag = z_imag_next;
-		path[iteration++] = z_real;
-        path[iteration++] = z_imag;
-	}
-	return iteration/2;
+  // optimization: replace sqrt in calc of abs on the on side with a square on the other:
+  s = SQR(s);
+  // so no need to use sqrt here:
+  while (z_real*z_real + z_imag*z_imag <= s && (iteration/2) < n) {
+    z_real_next = NEXT_REAL(z_real,z_imag,c_real);
+    z_imag_next = NEXT_IMAG(z_real,z_imag,c_imag);
+    z_real = z_real_next;
+    z_imag = z_imag_next;
+    path[iteration++] = z_real;
+    path[iteration++] = z_imag;
+  }
+  return iteration/2;
 }
 
 
 
 void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
-	Uint32* pixmem32; 
-	double r,g,b;	
-	/*r = 2*(0.5 - ratio);
-	if (r < 0) r = 0;
-	g = ratio/0.5;
-	if (g > 1) g = 2 - g;
-	b = 2*(-0.5 + ratio);
-	if (b < 0) b = 0;*/
+  Uint32* pixmem32; 
+  double r,g,b;	
+  /*r = 2*(0.5 - ratio);
+    if (r < 0) r = 0;
+    g = ratio/0.5;
+    if (g > 1) g = 2 - g;
+    b = 2*(-0.5 + ratio);
+    if (b < 0) b = 0;*/
 
-	if (x < 0 || y < 0) return;
+  if (x < 0 || y < 0) return;
 
-	r=1;
-	g=1;
-	b=1;
+  r=1;
+  g=1;
+  b=1;
 	
-	pixmem32 = (Uint32*) screen->pixels + x + y*screen->w; 
+  pixmem32 = (Uint32*) screen->pixels + x + y*screen->w; 
 
-	// TODO: check out if we could do cool stuff with an alpha channel here as well
-	*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(r*shade*255), (Uint8)(g*shade*255), (Uint8)(b*shade*255));
-	//fprintf(stderr, "after\n");
+  // TODO: check out if we could do cool stuff with an alpha channel here as well
+  *pixmem32 = SDL_MapRGB(screen->format, (Uint8)(r*shade*255), (Uint8)(g*shade*255), (Uint8)(b*shade*255));
+  //fprintf(stderr, "after\n");
 }
 
 
 
 void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
-	int i;
-	int max=0;
-	for (i=0; i<l; i++) {
-		if (a[i] > max) {
-			max = a[i];
-		}
-	}
-	for (i=0; i<l; i++) {
-		setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
-	}
+  int i;
+  int max=0;
+  for (i=0; i<l; i++) {
+    if (a[i] > max) {
+      max = a[i];
+    }
+  }
+  for (i=0; i<l; i++) {
+    setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
+  }
 }
 
 void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int l) {
-	Uint32* pixmem32;	
-	int i;
-	double maxr=0;
-	double maxg=0;
-	double maxb=0;
-	for (i=0; i<l; i++) {
-		if (r[i] > maxr) maxr = r[i];
-		if (g[i] > maxg) maxg = g[i];
-		if (b[i] > maxb) maxb = b[i];
-	}
-	//fprintf(stderr, "max calculated\n");
-	//fprintf(stderr, "maxr %f, maxg %f, maxb %f\n", maxr, maxg, maxb);
-	for (i=0; i<l; i++) {
-		pixmem32 = (Uint32*) screen->pixels + i;
-        //squeeze dynamic range by taking the third root of the ratios (which are doubles between 0 and 1)
-		*pixmem32 = SDL_MapRGB(screen->format, (Uint8)(exp(log(r[i]/maxr)/3)*255), (Uint8)(exp(log(g[i]/maxg)/3)*255), (Uint8)(exp(log(b[i]/maxb)/3)*255));
-		//*pixmem32 = SDL_MapRGB(screen->format, (Uint8)r[i]/maxr)*255, (Uint8)sqrt(g[i]/maxg)*255, (Uint8)sqrt(b[i]/maxb)*255);
-		//setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
-	}
+  Uint32* pixmem32;	
+  int i;
+  double maxr=0;
+  double maxg=0;
+  double maxb=0;
+  for (i=0; i<l; i++) {
+    if (r[i] > maxr) maxr = r[i];
+    if (g[i] > maxg) maxg = g[i];
+    if (b[i] > maxb) maxb = b[i];
+  }
+  //fprintf(stderr, "max calculated\n");
+  //fprintf(stderr, "maxr %f, maxg %f, maxb %f\n", maxr, maxg, maxb);
+  for (i=0; i<l; i++) {
+    pixmem32 = (Uint32*) screen->pixels + i;
+    //squeeze dynamic range by taking the third root of the ratios (which are doubles between 0 and 1)
+    *pixmem32 = SDL_MapRGB(screen->format, (Uint8)(exp(log(r[i]/maxr)/3)*255), (Uint8)(exp(log(g[i]/maxg)/3)*255), (Uint8)(exp(log(b[i]/maxb)/3)*255));
+    //*pixmem32 = SDL_MapRGB(screen->format, (Uint8)r[i]/maxr)*255, (Uint8)sqrt(g[i]/maxg)*255, (Uint8)sqrt(b[i]/maxb)*255);
+    //setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
+  }
 }
 
 void iterate_plane(int n, SDL_Surface* screen) {
-	int x,y,i,iteration,offset;
-    static double path[MAXITER*2];
-    double real, imag;
-	static double r[WIDTH*HEIGHT];
-	static double g[WIDTH*HEIGHT];
-	static double b[WIDTH*HEIGHT];
-	static double red,green,blue,ratio;
+  int x,y,i,iteration,offset;
+  static double path[MAXITER*2];
+  double real, imag;
+  static double r[WIDTH*HEIGHT];
+  static double g[WIDTH*HEIGHT];
+  static double b[WIDTH*HEIGHT];
+  static double red,green,blue,ratio;
 
-	int max_until_diverge = 0;
+  int max_until_diverge = 0;
 	
-	if (SDL_MUSTLOCK(screen)) {
-		if (SDL_LockSurface(screen) < 0 ) return;
-	}
+  if (SDL_MUSTLOCK(screen)) {
+    if (SDL_LockSurface(screen) < 0 ) return;
+  }
 
 
-	for (y=0; y<HEIGHT; y++){
-		for (x=0; x<WIDTH; x++) {
+  for (y=0; y<HEIGHT; y++){
+    for (x=0; x<WIDTH; x++) {
 			
-			if (rand() % 5 != 0) continue;
-			iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
-			if (iteration > MINITER && iteration < MAXITER) {
-				for (i=0; i<iteration; i++) {
-                    real = path[i*2];
-                    imag = path[(i*2)+1];
-					offset = IMG2X(imag)+REAL2Y(real)*WIDTH;
-					if (offset >= 0) {
-						//ratio = (double)(iteration-MINITER)*6.2832/(MAXITER-MINITER);
-						//ratio = (double)i*6.2832/MAXITER;
-						ratio = (double)i*6.2832/iteration ;
-						if (max_until_diverge < iteration) {
-							max_until_diverge = iteration;
-							fprintf(stderr, "max iteration found so far: %i\n", max_until_diverge);
-						}
-						if (ratio > M_PI) {
-							r[offset] += (cos(ratio) + 1)*0.5;
-						} else {
-							b[offset] += (cos(ratio) + 1)*0.5;
-						}
-						g[offset] += (-cos(ratio) + 1) * 0.5;	
-					}
-				}
-			}
-		}
-		//HACK
-		if (y%(10*FACTOR) != 0) continue;
-		print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
-		if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-		SDL_Flip(screen);
-		fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
+      if (rand() % 5 != 0) continue;
+      iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
+      if (iteration > MINITER && iteration < MAXITER) {
+	for (i=0; i<iteration; i++) {
+	  real = path[i*2];
+	  imag = path[(i*2)+1];
+	  offset = IMG2X(imag)+REAL2Y(real)*WIDTH;
+	  if (offset >= 0) {
+	    //ratio = (double)(iteration-MINITER)*6.2832/(MAXITER-MINITER);
+	    //ratio = (double)i*6.2832/MAXITER;
+	    ratio = (double)i*6.2832/iteration ;
+	    if (max_until_diverge < iteration) {
+	      max_until_diverge = iteration;
+	      fprintf(stderr, "max iteration found so far: %i\n", max_until_diverge);
+	    }
+	    if (ratio > M_PI) {
+	      r[offset] += (SQR(cos(ratio)) + 1)*0.5;
+	    } else {
+	      b[offset] += (SQR(cos(ratio)) + 1)*0.5;
+	    }
+	    g[offset] += (-SQR(cos(ratio))+ 1) * 0.5;	
+	  }
 	}
-	//print_array(screen, &a, WIDTH*HEIGHT, 0.1);
-	print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
-	if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-	SDL_Flip(screen);
+      }
+    }
+    //HACK
+    if (y%(10*FACTOR) != 0) continue;
+    print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
+    if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+    SDL_Flip(screen);
+    fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
+  }
+  //print_array(screen, &a, WIDTH*HEIGHT, 0.1);
+  print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
+  if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+  SDL_Flip(screen);
 }
 
 
 
 int main(int argc, char* argv[]) {
 
-	SDL_Surface* screen;
-	SDL_Event event;
+  SDL_Surface* screen;
+  SDL_Event event;
 
-	int keypress = 0;
-	int iteration = MAXITER;
+  int keypress = 0;
+  int iteration = MAXITER;
 
-	char filename[100];
+  char filename[100];
 
-	SDL_RWops* file;
+  SDL_RWops* file;
 
-	sprintf(filename, "output_%ix%i_from%ito%i.bmp", WIDTH, HEIGHT, MINITER, MAXITER);
+  sprintf(filename, "output_%ix%i_from%ito%i.bmp", WIDTH, HEIGHT, MINITER, MAXITER);
 	
-	file = SDL_RWFromFile(filename, "wb");
+  file = SDL_RWFromFile(filename, "wb");
 
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-		fprintf(stderr, "Unable to init video: %s\n", SDL_GetError());
-		return 1;
-	}
+  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    fprintf(stderr, "Unable to init video: %s\n", SDL_GetError());
+    return 1;
+  }
 
-	if (!(screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_SWSURFACE|SDL_HWSURFACE))) {
-		fprintf(stderr, "Unable to set %ix%i video: %s\n", WIDTH, HEIGHT, SDL_GetError());
-		SDL_Quit();
-		return 1;
-	}
+  if (!(screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_SWSURFACE|SDL_HWSURFACE))) {
+    fprintf(stderr, "Unable to set %ix%i video: %s\n", WIDTH, HEIGHT, SDL_GetError());
+    SDL_Quit();
+    return 1;
+  }
 
-	iterate_plane(iteration, screen);
+  iterate_plane(iteration, screen);
+  //SDL_SaveBMP_RW(screen, file, 1);
+  //SDL_Quit();
+  //return 1;
+	
+  while(1) {
+    while (SDL_PollEvent(&event)) {
+      switch (event.type) {
+      case SDL_QUIT:
+	fprintf(stderr, "quitting!\n");
+	SDL_SaveBMP_RW(screen, file, 1);
+	return 0;
+	break;
+      case SDL_KEYDOWN:
+	//iterate_plane(iteration++, screen);
+	fprintf(stderr, "quitting!\n");
 	SDL_SaveBMP_RW(screen, file, 1);
 	SDL_Quit();
-	return 1;
-	
-	while(1) {
-		while (SDL_PollEvent(&event)) {
-			switch (event.type) {
-				case SDL_QUIT:
-					fprintf(stderr, "quitting!\n");
-					SDL_SaveBMP_RW(screen, file, 1);
-					return 0;
-					break;
-				case SDL_KEYDOWN:
-					//iterate_plane(iteration++, screen);
-					fprintf(stderr, "quitting!\n");
-					SDL_SaveBMP_RW(screen, file, 1);
-					SDL_Quit();
-					return 0;
-					break;
-				case SDL_MOUSEBUTTONDOWN:
-					//iterate_plane(iteration++, screen);
-					fprintf(stderr, "mouse x:%i, mouse y:%i\n", event.button.x, event.button.y);
-					//trace_point(screen, Y2REAL(event.button.y), X2IMG(event.button.x), 0, 10);
-					break;
-			}
-		}
-	}
-
-	fprintf(stderr, "have reached the end somehow\n");
-
 	return 0;
+	break;
+      case SDL_MOUSEBUTTONDOWN:
+	//iterate_plane(iteration++, screen);
+	fprintf(stderr, "mouse x:%i, mouse y:%i\n", event.button.x, event.button.y);
+	//trace_point(screen, Y2REAL(event.button.y), X2IMG(event.button.x), 0, 10);
+	break;
+      }
+    }
+  }
+
+  fprintf(stderr, "have reached the end somehow\n");
+
+  return 0;
 
 }
