@@ -2,6 +2,7 @@
 #include <stdlib.h>
 //#include <complex.h>
 #include "SDL/SDL.h"
+#include "SDL/SDL_events.h"
 #include <math.h>
 
 #define MINITER 950
@@ -205,6 +206,25 @@ void iterate_plane(int n, SDL_Surface* screen) {
 }
 
 
+int save(SDL_Surface* screen) {
+  char filename[100];
+  SDL_RWops* file;
+
+  sprintf(filename, "output_%ix%i_from%ito%i.bmp", WIDTH, HEIGHT, MINITER, MAXITER);
+  if (!(file = SDL_RWFromFile(filename, "wb"))) { 
+    fprintf(stderr, "Unable to open filename '%s', error: %s!\n", filename, SDL_GetError());
+    return 1;
+  }
+
+  if (SDL_SaveBMP_RW(screen, file, 1)) {
+    fprintf(stderr, "Unable to save image under filename '%s', error: %s!\n", filename, SDL_GetError());
+    return 1;
+  }
+
+  return 0;
+}
+
+
 
 int main(int argc, char* argv[]) {
 
@@ -214,14 +234,7 @@ int main(int argc, char* argv[]) {
   int keypress = 0;
   int iteration = MAXITER;
 
-  char filename[100];
-
-  SDL_RWops* file;
-
-  sprintf(filename, "output_%ix%i_from%ito%i.bmp", WIDTH, HEIGHT, MINITER, MAXITER);
 	
-  file = SDL_RWFromFile(filename, "wb");
-
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     fprintf(stderr, "Unable to init video: %s\n", SDL_GetError());
     return 1;
@@ -234,25 +247,26 @@ int main(int argc, char* argv[]) {
   }
 
   iterate_plane(iteration, screen);
-  //SDL_SaveBMP_RW(screen, file, 1);
-  //SDL_Quit();
-  //return 1;
-	
+
   while(1) {
     while (SDL_PollEvent(&event)) {
       switch (event.type) {
       case SDL_QUIT:
 	fprintf(stderr, "quitting!\n");
-	SDL_SaveBMP_RW(screen, file, 1);
 	return 0;
-	break;
+
       case SDL_KEYDOWN:
 	//iterate_plane(iteration++, screen);
-	fprintf(stderr, "quitting!\n");
-	SDL_SaveBMP_RW(screen, file, 1);
-	SDL_Quit();
-	return 0;
+	if (event.key.keysym.sym == SDLK_s) {
+	  fprintf(stderr, "saving!\n");
+	  save(screen); 
+	} else if (event.key.keysym.sym == SDLK_ESCAPE) {
+	  fprintf(stderr, "quitting!\n");
+	  SDL_Quit();
+	  return 0;
+	}
 	break;
+
       case SDL_MOUSEBUTTONDOWN:
 	//iterate_plane(iteration++, screen);
 	fprintf(stderr, "mouse x:%i, mouse y:%i\n", event.button.x, event.button.y);
