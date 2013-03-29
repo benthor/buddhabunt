@@ -5,15 +5,17 @@
 #include <time.h>
 #include <math.h>
 
-#define MINITER 950
-#define MAXITER 16000000
-#define FACTOR 3
+#define MINITER 1000
+#define MAXITER 5000000
+#define FACTOR 2
 #define WIDTH (390 * FACTOR)
 #define HEIGHT (520 * FACTOR)
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
 
 #define LOOP_MAX_DIAMETER 1000
+#define LOOP_CHECK_EVERY 10000
+
 
 #define BPP 4
 #define DEPTH 32
@@ -54,8 +56,13 @@ return iteration;
 }*/
 
 
+int cutoffs = 0;
+int orbits = 0;
+int loops = 0;
 
-int loopdetector(double* path, int length) {
+
+
+static int loopdetector(double* path, int length) {
   double z_real = path[length-2];
   double z_imag = path[length-1];
   
@@ -63,7 +70,8 @@ int loopdetector(double* path, int length) {
   for (int i = length-4; i > 0 && i > (length-LOOP_MAX_DIAMETER); i-=2) {
     if (path[i] == z_real) {
       if (path[i+1] == z_imag){
-	fprintf(stderr, "loop found, diameter: %i\n", length-i);
+	//fprintf(stderr, "loop found after %i iterations, diameter: %i\n", length, length-i);
+	loops++;
 	return 1;
       } else {
 	//fprintf(stderr, "found duplicate real coordinate, but imag not matching\n");
@@ -77,7 +85,7 @@ int loopdetector(double* path, int length) {
 
 // optimized implementation of the above 
 // added array pointer to write values to
-int opt_iterate_point(double c_real, double c_imag, double s, int n, double* path) {
+static int opt_iterate_point(double c_real, double c_imag, double s, int n, double* path) {
   int iteration = 0;
   double z_real = 0;
   double z_imag = 0;
@@ -99,11 +107,12 @@ int opt_iterate_point(double c_real, double c_imag, double s, int n, double* pat
   // optimization: replace sqrt in calc of abs on the on side with a square on the other:
   s = SQR(s);
   // so no need to use sqrt here:
-  while (z_real*z_real + z_imag*z_imag <= s && (iteration/2) < n) {
-    if (iteration % LOOP_MAX_DIAMETER == 0 && loopdetector(path, iteration)) {
+  while (z_real*z_real + z_imag*z_imag <= s) {
+    if (iteration/2 == n || (iteration % LOOP_CHECK_EVERY == 0 && loopdetector(path, iteration))) {
+      cutoffs++;
       return n;
     }
-
+    
     z_real_next = NEXT_REAL(z_real,z_imag,c_real);
     z_imag_next = NEXT_IMAG(z_real,z_imag,c_imag);
     z_real = z_real_next;
@@ -113,27 +122,27 @@ int opt_iterate_point(double c_real, double c_imag, double s, int n, double* pat
     path[iteration++] = z_real;
     path[iteration++] = z_imag;
 
-
-
   }
-  /*  if (iteration/2 == n) {
+  /*if (iteration/2 == n) {
     //fprintf(stderr, "doesn't diverge in time!\n");
-    for (int i=(iteration-2); i > 0; i--) {
+    for (int i=(iteration-2); i > 0; i-=2) {
       if (path[i] == path[iteration-1]) {
 	//fprintf(stderr, "%f : %f\n%f : %f\n--------\n", path[i-4], path[i-3], path[i-2], path[i-1]);
-	fprintf(stderr, "was looking for %f in path, found it after stepping back %i steps\n", path[iteration-1], iteration - i);
+	if (path[i-1] == path[iteration-2] && !(loopdetector(path,iteration))) {
+	  fprintf(stderr, "contains a loop after all, diameter is %i steps after %i iterations\n", iteration - i, iteration);
+	}
 	break;
       }
     }
     fprintf(stderr, "=========\n");
     }*/
-
+  orbits++;
   return iteration/2;
 }
 
 
 
-void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
+static void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
   Uint32* pixmem32; 
   double r,g,b;	
   /*r = 2*(0.5 - ratio);
@@ -158,7 +167,7 @@ void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
 
 
 
-void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
+static void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
   int i;
   int max=0;
   for (i=0; i<l; i++) {
@@ -171,7 +180,7 @@ void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
   }
 }
 
-void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int l) {
+static void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int l) {
   Uint32* pixmem32;	
   int i;
   double maxr=0;
@@ -193,7 +202,7 @@ void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int
   }
 }
 
-void iterate_plane(int n, SDL_Surface* screen) {
+static void iterate_plane(int n, SDL_Surface* screen) {
   int x,y,i,iteration,offset;
   static double path[MAXITER*2];
   double real, imag;
@@ -251,7 +260,7 @@ void iterate_plane(int n, SDL_Surface* screen) {
 }
 
 
-int save(SDL_Surface* screen) {
+static int save(SDL_Surface* screen) {
   char filename[127];
   SDL_RWops* file;
   char timestamp[127];
@@ -298,8 +307,9 @@ int main(int argc, char* argv[]) {
   }
 
   iterate_plane(iteration, screen);
-  SDL_Quit();
-  return 0;
+  //SDL_Quit();
+  //  return 0;
+  fprintf(stderr, "render done:\n - legal orbits: %i\n - threshold overruns: %i\n - detected loops: %i\n", orbits, cutoffs, loops);
 
   while(1) {
     while (SDL_PollEvent(&event)) {
