@@ -6,12 +6,15 @@
 #include <math.h>
 
 #define MINITER 950
-#define MAXITER 160000
-#define FACTOR 1
+#define MAXITER 16000000
+#define FACTOR 3
 #define WIDTH (390 * FACTOR)
 #define HEIGHT (520 * FACTOR)
 #define BUFFSIZE (WIDTH*HEIGHT)
 #define	CURRSIZE (MAXITER*2)
+
+#define LOOP_MAX_DIAMETER 1000
+
 #define BPP 4
 #define DEPTH 32
 #define IMG_MIN -1.125
@@ -51,6 +54,27 @@ return iteration;
 }*/
 
 
+
+int loopdetector(double* path, int length) {
+  double z_real = path[length-2];
+  double z_imag = path[length-1];
+  
+  // only take the last 10 percent of the orbit length into account
+  for (int i = length-4; i > 0 && i > (length-LOOP_MAX_DIAMETER); i-=2) {
+    if (path[i] == z_real) {
+      if (path[i+1] == z_imag){
+	fprintf(stderr, "loop found, diameter: %i\n", length-i);
+	return 1;
+      } else {
+	//fprintf(stderr, "found duplicate real coordinate, but imag not matching\n");
+	return 0;
+      }
+    }
+  }
+  return 0;
+}
+
+
 // optimized implementation of the above 
 // added array pointer to write values to
 int opt_iterate_point(double c_real, double c_imag, double s, int n, double* path) {
@@ -76,13 +100,34 @@ int opt_iterate_point(double c_real, double c_imag, double s, int n, double* pat
   s = SQR(s);
   // so no need to use sqrt here:
   while (z_real*z_real + z_imag*z_imag <= s && (iteration/2) < n) {
+    if (iteration % LOOP_MAX_DIAMETER == 0 && loopdetector(path, iteration)) {
+      return n;
+    }
+
     z_real_next = NEXT_REAL(z_real,z_imag,c_real);
     z_imag_next = NEXT_IMAG(z_real,z_imag,c_imag);
     z_real = z_real_next;
     z_imag = z_imag_next;
+
+
     path[iteration++] = z_real;
     path[iteration++] = z_imag;
+
+
+
   }
+  /*  if (iteration/2 == n) {
+    //fprintf(stderr, "doesn't diverge in time!\n");
+    for (int i=(iteration-2); i > 0; i--) {
+      if (path[i] == path[iteration-1]) {
+	//fprintf(stderr, "%f : %f\n%f : %f\n--------\n", path[i-4], path[i-3], path[i-2], path[i-1]);
+	fprintf(stderr, "was looking for %f in path, found it after stepping back %i steps\n", path[iteration-1], iteration - i);
+	break;
+      }
+    }
+    fprintf(stderr, "=========\n");
+    }*/
+
   return iteration/2;
 }
 
@@ -253,6 +298,8 @@ int main(int argc, char* argv[]) {
   }
 
   iterate_plane(iteration, screen);
+  SDL_Quit();
+  return 0;
 
   while(1) {
     while (SDL_PollEvent(&event)) {
