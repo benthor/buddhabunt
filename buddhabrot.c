@@ -87,13 +87,13 @@ static int loopdetector(double* path, int length) {
 
 // optimized implementation of the above 
 // added array pointer to write values to
-static int opt_iterate_point(double c_real, double c_imag, double* path) {
+static int opt_iterate_point(double c_real, double c_imag) {
   int iteration = 0;
   double z_real = 0;
   double z_imag = 0;
   double z_real_next, z_imag_next;
   double q = SQR(c_real - 0.25) + SQR(c_imag);
-  //double q = SQR(c_real) - c_real/2 + 1/16 + SQR(c_imag);
+  static double path[2*MAXITER];
 
 
   // filter out main mandelbrot cardioid
@@ -133,7 +133,7 @@ static int opt_iterate_point(double c_real, double c_imag, double* path) {
 
 
 
-static void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
+/*static void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
   Uint32* pixmem32; 
   double r,g,b;	
 
@@ -162,7 +162,7 @@ static void print_array(SDL_Surface* screen, int* a, int l, double ratio) {
   for (i=0; i<l; i++) {
     setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
   }
-}
+  }*/
 
 static void print_color_array(SDL_Surface* screen, double* r, double* g, double* b, int l) {
   Uint32* pixmem32;	
@@ -181,10 +181,10 @@ static void print_color_array(SDL_Surface* screen, double* r, double* g, double*
     pixmem32 = (Uint32*) screen->pixels + i;
     //squeeze dynamic range by taking the third root of the ratios (which are doubles between 0 and 1)
     *pixmem32 = SDL_MapRGB(screen->format, (Uint8)(exp(log(r[i]/maxr)/3)*255), (Uint8)(exp(log(g[i]/maxg)/3)*255), (Uint8)(exp(log(b[i]/maxb)/3)*255));
-    //*pixmem32 = SDL_MapRGB(screen->format, (Uint8)r[i]/maxr)*255, (Uint8)sqrt(g[i]/maxg)*255, (Uint8)sqrt(b[i]/maxb)*255);
-    //setPixel(screen, i%WIDTH, i/WIDTH, exp(log((double)a[i]/max)/3), ratio);
   }
 }
+
+static 
 
 static void add_known_orbit(SDL_Surface* screen, double c_real, double c_imag, int iteration) {
   static double r[WIDTH*HEIGHT];
@@ -199,13 +199,12 @@ static void add_known_orbit(SDL_Surface* screen, double c_real, double c_imag, i
     if (offset >= 0) {
       double ratio = (double)i*6.2832/iteration;
       if (ratio > M_PI) {
-	r[offset] += (SQR(cos(ratio)) + 1)*0.5;
+	r[offset] += ( SQR(cos(ratio)) + 1) * 0.5;
       } else {
-	b[offset] += (SQR(cos(ratio)) + 1)*0.5;
+	b[offset] += ( SQR(cos(ratio)) + 1) * 0.5;
       }
-      g[offset] += (-SQR(cos(ratio))+ 1) * 0.5;	
+      g[offset]   += (-SQR(cos(ratio)) + 1) * 0.5;	
     }
-
 
     double z_real_next = NEXT_REAL(z_real, z_imag, c_real);
     double z_imag_next = NEXT_IMAG(z_real, z_imag, c_imag);
@@ -214,28 +213,20 @@ static void add_known_orbit(SDL_Surface* screen, double c_real, double c_imag, i
     z_imag = z_imag_next;
   }
   print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
-  
 }
 
 static void iterate_plane(SDL_Surface* screen) {
-  int x,y,i,iteration,offset;
   static double path[MAXITER*2];
-  double real, imag;
-  static double r[WIDTH*HEIGHT];
-  static double g[WIDTH*HEIGHT];
-  static double b[WIDTH*HEIGHT];
-  static double red,green,blue,ratio;
 
   if (SDL_MUSTLOCK(screen)) {
     if (SDL_LockSurface(screen) < 0 ) return;
   }
 
 
-  for (y=0; y<HEIGHT; y++){
-    for (x=0; x<WIDTH; x++) {
-			
+  for (int y=0; y<HEIGHT; y++){
+    for (int x=0; x<WIDTH; x++) {
       if (rand() % 5 != 0) continue;
-      iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), &path);
+      int iteration = opt_iterate_point(Y2REAL(y), X2IMG(x));
       if (iteration > MINITER && iteration < MAXITER) {
 	add_known_orbit(screen, Y2REAL(y), X2IMG(x), iteration);
       }
@@ -247,8 +238,6 @@ static void iterate_plane(SDL_Surface* screen) {
       fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
     }
   }
-  //print_array(screen, &a, WIDTH*HEIGHT, 0.1);
-  //print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
   if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
   SDL_Flip(screen);
 }
