@@ -98,8 +98,8 @@ static int opt_iterate_point(double c_real, double c_imag, double* path) {
 
   // filter out main mandelbrot cardioid
   if (q * (q + (c_real - 0.25)) < 0.25 * SQR(c_imag)) { 
-    return MAXITER;
-    //return n;	
+    return MAXITER; 
+   //return n;	
   }
   if (SQR(c_real + 1) + SQR(c_imag) < 0.0625) {
     //fprintf(stderr, "secondary cutoff!\n");	
@@ -126,19 +126,7 @@ static int opt_iterate_point(double c_real, double c_imag, double* path) {
     iteration++;
 
   }
-  /*if (iteration/2 == n) {
-    //fprintf(stderr, "doesn't diverge in time!\n");
-    for (int i=(iteration-2); i > 0; i-=2) {
-      if (path[i] == path[iteration-1]) {
-	//fprintf(stderr, "%f : %f\n%f : %f\n--------\n", path[i-4], path[i-3], path[i-2], path[i-1]);
-	if (path[i-1] == path[iteration-2] && !(loopdetector(path,iteration))) {
-	  fprintf(stderr, "contains a loop after all, diameter is %i steps after %i iterations\n", iteration - i, iteration);
-	}
-	break;
-      }
-    }
-    fprintf(stderr, "=========\n");
-    }*/
+
   orbits++;
   return iteration;
 }
@@ -198,6 +186,37 @@ static void print_color_array(SDL_Surface* screen, double* r, double* g, double*
   }
 }
 
+static void add_known_orbit(SDL_Surface* screen, double c_real, double c_imag, int iteration) {
+  static double r[WIDTH*HEIGHT];
+  static double g[WIDTH*HEIGHT];
+  static double b[WIDTH*HEIGHT];
+  double z_real = c_real;
+  double z_imag = c_imag;
+
+  for (int i=0; i<iteration; i++) {
+    int offset = IMG2X(z_imag)+REAL2Y(z_real)*WIDTH;
+    // maybe useless check
+    if (offset >= 0) {
+      double ratio = (double)i*6.2832/iteration;
+      if (ratio > M_PI) {
+	r[offset] += (SQR(cos(ratio)) + 1)*0.5;
+      } else {
+	b[offset] += (SQR(cos(ratio)) + 1)*0.5;
+      }
+      g[offset] += (-SQR(cos(ratio))+ 1) * 0.5;	
+    }
+
+
+    double z_real_next = NEXT_REAL(z_real, z_imag, c_real);
+    double z_imag_next = NEXT_IMAG(z_real, z_imag, c_imag);
+
+    z_real = z_real_next;
+    z_imag = z_imag_next;
+  }
+  print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
+  
+}
+
 static void iterate_plane(SDL_Surface* screen) {
   int x,y,i,iteration,offset;
   static double path[MAXITER*2];
@@ -207,8 +226,6 @@ static void iterate_plane(SDL_Surface* screen) {
   static double b[WIDTH*HEIGHT];
   static double red,green,blue,ratio;
 
-  int max_until_diverge = 0;
-	
   if (SDL_MUSTLOCK(screen)) {
     if (SDL_LockSurface(screen) < 0 ) return;
   }
@@ -220,37 +237,18 @@ static void iterate_plane(SDL_Surface* screen) {
       if (rand() % 5 != 0) continue;
       iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), &path);
       if (iteration > MINITER && iteration < MAXITER) {
-	for (i=0; i<iteration; i++) {
-	  real = path[i*2];
-	  imag = path[(i*2)+1];
-	  offset = IMG2X(imag)+REAL2Y(real)*WIDTH;
-	  if (offset >= 0) {
-	    //ratio = (double)(iteration-MINITER)*6.2832/(MAXITER-MINITER);
-	    //ratio = (double)i*6.2832/MAXITER;
-	    ratio = (double)i*6.2832/iteration ;
-	    if (max_until_diverge < iteration) {
-	      max_until_diverge = iteration;
-	      fprintf(stderr, "max iteration found so far: %i\n", max_until_diverge);
-	    }
-	    if (ratio > M_PI) {
-	      r[offset] += (SQR(cos(ratio)) + 1)*0.5;
-	    } else {
-	      b[offset] += (SQR(cos(ratio)) + 1)*0.5;
-	    }
-	    g[offset] += (-SQR(cos(ratio))+ 1) * 0.5;	
-	  }
-	}
+	add_known_orbit(screen, Y2REAL(y), X2IMG(x), iteration);
       }
     }
     //HACK
-    if (y%(10*FACTOR) != 0) continue;
-    print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
-    if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
-    SDL_Flip(screen);
-    fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
+    if (y%(10*FACTOR) == 0) {
+      if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
+      SDL_Flip(screen);
+      fprintf(stderr, "line nr %i of %i\n", y, HEIGHT);
+    }
   }
   //print_array(screen, &a, WIDTH*HEIGHT, 0.1);
-  print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
+  //print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
   if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
   SDL_Flip(screen);
 }
