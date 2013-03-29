@@ -17,6 +17,8 @@
 #define LOOP_CHECK_EVERY 10000
 
 
+#define MAX_ABS 2
+
 #define BPP 4
 #define DEPTH 32
 #define IMG_MIN -1.125
@@ -85,7 +87,7 @@ static int loopdetector(double* path, int length) {
 
 // optimized implementation of the above 
 // added array pointer to write values to
-static int opt_iterate_point(double c_real, double c_imag, double s, int n, double* path) {
+static int opt_iterate_point(double c_real, double c_imag, double* path) {
   int iteration = 0;
   double z_real = 0;
   double z_imag = 0;
@@ -96,21 +98,21 @@ static int opt_iterate_point(double c_real, double c_imag, double s, int n, doub
 
   // filter out main mandelbrot cardioid
   if (q * (q + (c_real - 0.25)) < 0.25 * SQR(c_imag)) { 
-    return n;
+    return MAXITER;
     //return n;	
   }
   if (SQR(c_real + 1) + SQR(c_imag) < 0.0625) {
     //fprintf(stderr, "secondary cutoff!\n");	
-    return n;
+    return MAXITER;
   }
 	
   // optimization: replace sqrt in calc of abs on the on side with a square on the other:
-  s = SQR(s);
+  int s = SQR(MAX_ABS);
   // so no need to use sqrt here:
   while (z_real*z_real + z_imag*z_imag <= s) {
-    if (iteration/2 == n || (iteration % LOOP_CHECK_EVERY == 0 && loopdetector(path, iteration))) {
+    if (iteration == MAXITER || (iteration % LOOP_CHECK_EVERY == 0 && loopdetector(path, iteration*2))) {
       cutoffs++;
-      return n;
+      return MAXITER;
     }
     
     z_real_next = NEXT_REAL(z_real,z_imag,c_real);
@@ -119,8 +121,9 @@ static int opt_iterate_point(double c_real, double c_imag, double s, int n, doub
     z_imag = z_imag_next;
 
 
-    path[iteration++] = z_real;
-    path[iteration++] = z_imag;
+    path[2*iteration] = z_real;
+    path[2*iteration+1] = z_imag;
+    iteration++;
 
   }
   /*if (iteration/2 == n) {
@@ -137,7 +140,7 @@ static int opt_iterate_point(double c_real, double c_imag, double s, int n, doub
     fprintf(stderr, "=========\n");
     }*/
   orbits++;
-  return iteration/2;
+  return iteration;
 }
 
 
@@ -145,12 +148,6 @@ static int opt_iterate_point(double c_real, double c_imag, double s, int n, doub
 static void setPixel(SDL_Surface* screen, int x, int y, double shade, double ratio) {
   Uint32* pixmem32; 
   double r,g,b;	
-  /*r = 2*(0.5 - ratio);
-    if (r < 0) r = 0;
-    g = ratio/0.5;
-    if (g > 1) g = 2 - g;
-    b = 2*(-0.5 + ratio);
-    if (b < 0) b = 0;*/
 
   if (x < 0 || y < 0) return;
 
@@ -162,7 +159,6 @@ static void setPixel(SDL_Surface* screen, int x, int y, double shade, double rat
 
   // TODO: check out if we could do cool stuff with an alpha channel here as well
   *pixmem32 = SDL_MapRGB(screen->format, (Uint8)(r*shade*255), (Uint8)(g*shade*255), (Uint8)(b*shade*255));
-  //fprintf(stderr, "after\n");
 }
 
 
@@ -202,7 +198,7 @@ static void print_color_array(SDL_Surface* screen, double* r, double* g, double*
   }
 }
 
-static void iterate_plane(int n, SDL_Surface* screen) {
+static void iterate_plane(SDL_Surface* screen) {
   int x,y,i,iteration,offset;
   static double path[MAXITER*2];
   double real, imag;
@@ -222,7 +218,7 @@ static void iterate_plane(int n, SDL_Surface* screen) {
     for (x=0; x<WIDTH; x++) {
 			
       if (rand() % 5 != 0) continue;
-      iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), 2, n, &path);
+      iteration = opt_iterate_point(Y2REAL(y), X2IMG(x), &path);
       if (iteration > MINITER && iteration < MAXITER) {
 	for (i=0; i<iteration; i++) {
 	  real = path[i*2];
@@ -292,7 +288,6 @@ int main(int argc, char* argv[]) {
   SDL_Event event;
 
   int keypress = 0;
-  int iteration = MAXITER;
 
 	
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -306,7 +301,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  iterate_plane(iteration, screen);
+  iterate_plane(screen);
   //SDL_Quit();
   //  return 0;
   fprintf(stderr, "render done:\n - legal orbits: %i\n - threshold overruns: %i\n - detected loops: %i\n", orbits, cutoffs, loops);
