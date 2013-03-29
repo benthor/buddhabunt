@@ -2,7 +2,7 @@
 #include <stdlib.h>
 //#include <complex.h>
 #include "SDL/SDL.h"
-#include "SDL/SDL_events.h"
+#include <time.h>
 #include <math.h>
 
 #define MINITER 950
@@ -207,10 +207,15 @@ void iterate_plane(int n, SDL_Surface* screen) {
 
 
 int save(SDL_Surface* screen) {
-  char filename[100];
+  char filename[127];
   SDL_RWops* file;
+  char timestamp[127];
+  time_t t = time(NULL);
 
-  sprintf(filename, "output_%ix%i_from%ito%i.bmp", WIDTH, HEIGHT, MINITER, MAXITER);
+  if (!(strftime(timestamp, 127, "%F-%T", localtime(&t)))) {
+    fprintf(stderr, "strftime returned 0\n");
+  }
+  sprintf(filename, "%s_output_%ix%i_from%ito%i.bmp", timestamp, WIDTH, HEIGHT, MINITER, MAXITER);
   if (!(file = SDL_RWFromFile(filename, "wb"))) { 
     fprintf(stderr, "Unable to open filename '%s', error: %s!\n", filename, SDL_GetError());
     return 1;
@@ -220,6 +225,7 @@ int save(SDL_Surface* screen) {
     fprintf(stderr, "Unable to save image under filename '%s', error: %s!\n", filename, SDL_GetError());
     return 1;
   }
+  fprintf(stderr, "surface dumped to file '%s'\n", filename);
 
   return 0;
 }
@@ -260,7 +266,7 @@ int main(int argc, char* argv[]) {
 	if (event.key.keysym.sym == SDLK_s) {
 	  fprintf(stderr, "saving!\n");
 	  save(screen); 
-	} else if (event.key.keysym.sym == SDLK_ESCAPE) {
+	} else if (event.key.keysym.sym == SDLK_ESCAPE || event.key.keysym.sym == SDLK_q) {
 	  fprintf(stderr, "quitting!\n");
 	  SDL_Quit();
 	  return 0;
