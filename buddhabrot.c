@@ -188,10 +188,7 @@ static int opt_iterate_point(double c_real, double c_imag) {
    }
  }
 
- static void add_known_orbit(SDL_Surface* screen, double c_real, double c_imag, int iteration) {
-   static double r[WIDTH*HEIGHT];
-   static double g[WIDTH*HEIGHT];
-   static double b[WIDTH*HEIGHT];
+void add_known_orbit(double* r, double* g, double* b, double c_real, double c_imag, int iteration) {
    double z_real = c_real;
    double z_imag = c_imag;
 
@@ -214,10 +211,9 @@ static int opt_iterate_point(double c_real, double c_imag) {
      z_real = z_real_next;
      z_imag = z_imag_next;
    }
-   print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
  }
 
- static void iterate_plane(SDL_Surface* screen) {
+/* static void iterate_plane(SDL_Surface* screen) {
    static double path[MAXITER*2];
 
    if (SDL_MUSTLOCK(screen)) {
@@ -242,7 +238,7 @@ static int opt_iterate_point(double c_real, double c_imag) {
    }
    if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
    SDL_Flip(screen);
- }
+   }*/
 
 int is_readable(int fd) {
   struct timeval tv;
@@ -282,6 +278,9 @@ int is_writable(int fd) {
 
 
 void iterate_plane_fds(SDL_Surface* screen, int* rfds) {
+  static double r[WIDTH*HEIGHT];
+  static double g[WIDTH*HEIGHT];
+  static double b[WIDTH*HEIGHT];
   double real, imag;
   int iteration;
   int tmp = WORKERS;
@@ -300,14 +299,17 @@ void iterate_plane_fds(SDL_Surface* screen, int* rfds) {
 	if (read(rfd, &real, sizeof(double)) == -1) fprintf(stderr, "whoops\n");
 	if (read(rfd, &imag, sizeof(double)) == -1) fprintf(stderr, "whoops\n");
 	//fprintf(stderr, "got point to draw at %f : %f with iteration depth of %i!\n", real, imag, iteration);
-	add_known_orbit(screen, real, imag, iteration);
+	add_known_orbit(&r, &g, &b, real, imag, iteration);
 	if (i++ % 50*FACTOR == 0) {
+	  print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
 	  if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
 	  SDL_Flip(screen);
+
 	}
       }
     }
   }
+  print_color_array(screen, &r, &g, &b, WIDTH*HEIGHT);
   if (SDL_MUSTLOCK(screen)) SDL_UnlockSurface(screen);
   SDL_Flip(screen);
 }
